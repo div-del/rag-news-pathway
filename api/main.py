@@ -62,6 +62,21 @@ class YouTubeAnalyzeRequest(BaseModel):
     article_title: str = Field(..., description="Related article title")
     article_content: Optional[str] = Field(None, description="Article content for context")
 
+class OnboardingRequest(BaseModel):
+    """Request model for user onboarding questionnaire"""
+    user_id: str = Field(..., description="Unique user identifier")
+    categories: List[str] = Field(..., description="Q1: Selected news categories")
+    reading_depth: str = Field(..., description="Q2: Reading depth preference")
+    daily_time: str = Field(..., description="Q5: Daily time spent on news")
+    content_formats: List[str] = Field(..., description="Q6: Preferred content formats")
+    primary_reason: str = Field(..., description="Q7: Primary reason for staying informed")
+    industry: str = Field(..., description="Q8: Work industry")
+    regions: List[str] = Field(..., description="Q9: Regional preferences")
+    ai_summary_preference: str = Field(..., description="Q12: AI summary preference")
+    importance_timely: int = Field(..., ge=1, le=5, description="Q15a: Importance of timeliness")
+    importance_accurate: int = Field(..., ge=1, le=5, description="Q15b: Importance of accuracy")
+    importance_engaging: int = Field(..., ge=1, le=5, description="Q15c: Importance of engagement")
+
 # Global instances
 news_connector: Optional[SerperNewsConnector] = None
 article_scraper: Optional[ArticleScraper] = None
@@ -128,6 +143,15 @@ async def root():
     if index_file.exists():
         return FileResponse(str(index_file))
     return {"message": "Live AI News Platform API", "docs": "/docs"}
+
+
+@app.get("/onboarding")
+async def onboarding_page():
+    """Serve the onboarding questionnaire page"""
+    onboarding_file = frontend_path / "onboarding.html"
+    if onboarding_file.exists():
+        return FileResponse(str(onboarding_file))
+    return {"message": "Onboarding page not found"}
 
 
 # ============ Health Check ============
@@ -365,6 +389,125 @@ async def get_user_recommendations(user_id: str, limit: int = 10):
             for r in recommendations
         ]
     }
+
+
+# ============ Onboarding ============
+
+# SQLite for onboarding data (simple local storage)
+ONBOARDING_DB_PATH = Path(__file__).parent.parent / "onboarding.db"
+
+def get_onboarding_engine():
+    """Get SQLite engine for onboarding data"""
+    from sqlalchemy import create_engine
+    from api.db_models import Base
+    engine = create_engine(f"sqlite:///{ONBOARDING_DB_PATH}", echo=False)
+    Base.metadata.create_all(engine)
+    return engine
+
+@app.post("/api/onboarding")
+async def save_onboarding(request: OnboardingRequest):
+    """
+    Save user onboarding questionnaire responses.
+    This should only be called once per user.
+    """
+    from sqlalchemy.orm import sessionmaker
+    from api.db_models import UserOnboarding
+    
+    try:
+        engine = get_onboarding_engine()
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        # Check if user already completed onboarding
+        existing = session.query(UserOnboarding).filter_by(user_id=request.user_id).first()
+        if existing:
+            session.close()
+            return {
+                "success": True,
+                "message": "Onboarding already completed",
+                "user_id": request.user_id
+            }
+        
+        # Create new onboarding record
+        onboarding = UserOnboarding(
+            user_id=request.user_id,
+            categories=request.categories,
+            reading_depth=request.reading_depth,
+            daily_time=request.daily_time,
+            content_formats=request.content_formats,
+            primary_reason=request.primary_reason,
+            industry=request.industry,
+            regions=request.regions,
+            ai_summary_preference=request.ai_summary_preference,
+            importance_timely=request.importance_timely,
+            importance_accurate=request.importance_accurate,
+            importance_engaging=request.importance_engaging
+        )
+        
+        session.add(onboarding)
+        session.commit()
+        session.close()
+        
+        logger.info(f"Saved onboarding for user: {request.user_id}")
+        
+        return {
+            "success": True,
+            "message": "Onboarding completed successfully",
+            "user_id": request.user_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error saving onboarding: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/onboarding/check/{user_id}")
+async def check_onboarding(user_id: str):
+    """
+    Check if a user has completed onboarding.
+    Returns the onboarding data if completed.
+    """
+    from sqlalchemy.orm import sessionmaker
+    from api.db_models import UserOnboarding
+    
+    try:
+        engine = get_onboarding_engine()
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        onboarding = session.query(UserOnboarding).filter_by(user_id=user_id).first()
+        
+        if onboarding:
+            data = {
+                "user_id": onboarding.user_id,
+                "categories": onboarding.categories,
+                "reading_depth": onboarding.reading_depth,
+                "daily_time": onboarding.daily_time,
+                "content_formats": onboarding.content_formats,
+                "primary_reason": onboarding.primary_reason,
+                "industry": onboarding.industry,
+                "regions": onboarding.regions,
+                "ai_summary_preference": onboarding.ai_summary_preference,
+                "importance_timely": onboarding.importance_timely,
+                "importance_accurate": onboarding.importance_accurate,
+                "importance_engaging": onboarding.importance_engaging,
+                "completed_at": onboarding.completed_at.isoformat() if onboarding.completed_at else None
+            }
+            session.close()
+            return {
+                "completed": True,
+                "data": data
+            }
+        
+        session.close()
+        return {
+            "completed": False,
+            "data": None
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking onboarding: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============ News Ingestion ============

@@ -95,7 +95,7 @@ class UserInteraction(Base):
     interaction_type = Column(String(50), nullable=False, index=True)
     
     # Additional data (e.g., chat messages, time spent)
-    metadata = Column(JSON)
+    extra_data = Column(JSON)
     
     # Timestamp
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -129,3 +129,44 @@ class ArticleComparison(Base):
     
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class UserOnboarding(Base):
+    """Store user onboarding questionnaire responses (one-time)"""
+    __tablename__ = "user_onboarding"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(255), unique=True, nullable=False, index=True)
+    
+    # Q1: News categories of interest (multi-select)
+    categories = Column(JSON)  # e.g., ['Technology', 'Business', 'Sports']
+    
+    # Q2: Reading depth preference
+    reading_depth = Column(String(50))  # 'headlines', 'quick', 'in_depth', 'mixed'
+    
+    # Q5: Daily time spent on news
+    daily_time = Column(String(50))  # 'less_10', '10_30', '30_60', 'more_60'
+    
+    # Q6: Preferred content formats (multi-select)
+    content_formats = Column(JSON)  # e.g., ['text', 'video', 'audio', 'infographics']
+    
+    # Q7: Primary reason for staying informed
+    primary_reason = Column(String(100))  # 'professional', 'personal', 'investment', 'social', 'academic'
+    
+    # Q8: Work industry
+    industry = Column(String(100))  # e.g., 'Technology', 'Finance', 'Healthcare'
+    
+    # Q9: Regional preferences (multi-select)
+    regions = Column(JSON)  # e.g., ['Local', 'National', 'International']
+    
+    # Q12: AI summary preference
+    ai_summary_preference = Column(String(50))  # 'love_it', 'useful_verify', 'prefer_human', 'open_to_try'
+    
+    # Q15: Importance ratings (1-5 scale)
+    importance_timely = Column(Integer)  # How important is breaking news
+    importance_accurate = Column(Integer)  # How important is fact-checked content
+    importance_engaging = Column(Integer)  # How important is well-written content
+    
+    # Metadata
+    completed_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
