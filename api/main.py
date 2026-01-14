@@ -23,7 +23,11 @@ from user.user_profile import UserProfileManager, get_profile_manager
 from user.recommendation_engine import RecommendationEngine, get_recommendation_engine
 from connectors.news_connector import SerperNewsConnector
 from connectors.article_scraper import ArticleScraper
+from user.recommendation_engine import RecommendationEngine, get_recommendation_engine
+from connectors.news_connector import SerperNewsConnector
+from connectors.article_scraper import ArticleScraper
 from connectors.youtube_analyzer import YouTubeAnalyzer, get_youtube_analyzer
+from api.database import init_db
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +103,14 @@ async def lifespan(app: FastAPI):
     get_profile_manager()
     get_recommendation_engine()
     
+    # Initialize RAG and user components (singletons)
+    get_rag_engine()
+    get_profile_manager()
+    get_recommendation_engine()
+    
+    # Initialize Database
+    init_db()
+
     logger.info("All components initialized")
     
     yield
@@ -197,6 +209,10 @@ async def get_news_feed(
     rec_engine = get_recommendation_engine()
     
     if user_id:
+        # [NEW] Track explicit filter usage if category is provided
+        if category and category != "":
+            get_profile_manager().track_filter(user_id, category)
+
         recommendations = rec_engine.get_personalized_feed(
             user_id=user_id,
             limit=limit,
@@ -467,6 +483,13 @@ async def save_onboarding(request: OnboardingRequest):
         session.commit()
         session.close()
         
+        # [NEW] Seed UserProfile preferences from Onboarding data
+        try:
+            profile_mgr = get_profile_manager()
+            profile_mgr.seed_from_onboarding(request.user_id, request.categories)
+        except Exception as e:
+            logger.error(f"Error seeding profile from onboarding: {e}")
+
         logger.info(f"Saved onboarding for user: {request.user_id}")
         
         return {

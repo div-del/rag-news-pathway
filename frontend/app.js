@@ -9,14 +9,27 @@ let currentArticleId = null;
 let articles = [];
 let comparisonData = { 1: [], 2: [] };
 
+// ============ Live Data Config ============
+const BACKGROUND_REFRESH_INTERVAL = 2 * 60 * 1000; // 2 minutes
+let lastArticleCount = 0;
+let backgroundRefreshTimer = null;
+
 // ============ Initialization ============
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeNavigation();
     initializeEventListeners();
+
+    // Initial load of existing articles
     loadNewsFeed();
     loadStats();
     connectWebSocket();
+
+    // [LIVE DATA] Auto-fetch fresh news on page load
+    autoFetchOnLoad();
+
+    // [LIVE DATA] Start background refresh timer
+    startBackgroundRefresh();
 });
 
 function initializeNavigation() {
@@ -83,6 +96,120 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
+}
+
+// ============ Live Data Functions ============
+
+/**
+ * Auto-fetch fresh news when page loads
+ */
+async function autoFetchOnLoad() {
+    console.log('[LIVE] Auto-fetching fresh news on page load...');
+    try {
+        // Fetch a small batch of fresh articles silently
+        const result = await fetchAPI('/news/fetch?num_results=5', { method: 'POST' });
+
+        if (result.count > 0) {
+            showNotification(`🔴 LIVE: ${result.count} fresh articles loaded`, 'success');
+            await loadNewsFeed();
+            await loadStats();
+            lastArticleCount = articles.length;
+        }
+    } catch (error) {
+        console.error('[LIVE] Auto-fetch failed:', error);
+        // Silent fail - don't disturb user
+    }
+}
+
+/**
+ * Start background refresh timer
+ */
+function startBackgroundRefresh() {
+    // Clear any existing timer
+    if (backgroundRefreshTimer) {
+        clearInterval(backgroundRefreshTimer);
+    }
+
+    console.log(`[LIVE] Background refresh enabled (every ${BACKGROUND_REFRESH_INTERVAL / 1000}s)`);
+
+    backgroundRefreshTimer = setInterval(async () => {
+        await checkForNewArticles();
+    }, BACKGROUND_REFRESH_INTERVAL);
+}
+
+/**
+ * Check for new articles in background and notify user
+ */
+async function checkForNewArticles() {
+    console.log('[LIVE] Checking for new articles...');
+
+    try {
+        // Silently fetch new articles
+        const result = await fetchAPI('/news/fetch?num_results=3', { method: 'POST' });
+
+        if (result.count > 0) {
+            // New articles available!
+            showNewArticlesNotification(result.count);
+        }
+
+        // Refresh the feed silently
+        await loadNewsFeed(document.getElementById('category-filter').value || null);
+        await loadStats();
+
+        // Check if count increased
+        const newCount = articles.length;
+        if (newCount > lastArticleCount && lastArticleCount > 0) {
+            const diff = newCount - lastArticleCount;
+            showNotification(`🔴 LIVE: +${diff} new articles added to feed`, 'success');
+        }
+        lastArticleCount = newCount;
+
+    } catch (error) {
+        console.error('[LIVE] Background check failed:', error);
+    }
+}
+
+/**
+ * Show prominent "New Articles" notification
+ */
+function showNewArticlesNotification(count) {
+    // Create a special live notification
+    const notification = document.createElement('div');
+    notification.className = 'notification live-notification';
+    notification.innerHTML = `
+        <span class="live-pulse"></span>
+        <span>🔴 LIVE: ${count} new articles just arrived!</span>
+    `;
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 30px;
+        font-weight: 600;
+        z-index: 10000;
+        animation: slideDown 0.3s ease-out, pulse 2s infinite;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+    `;
+
+    notification.onclick = () => {
+        notification.remove();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.animation = 'slideUp 0.3s ease-out forwards';
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 5000);
 }
 
 // ============ API Functions ============
