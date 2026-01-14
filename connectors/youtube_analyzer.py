@@ -171,6 +171,9 @@ class YouTubeAnalyzer:
                     elif "youtu.be/" in link:
                         video_id = link.split("youtu.be/")[1].split("?")[0]
                     
+                    if not video_id:
+                        continue
+                        
                     result = YouTubeSearchResult(
                         video_id=video_id,
                         url=link,

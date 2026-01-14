@@ -129,11 +129,74 @@ class RecommendationEngine:
         
         return min(1.0, max(0.0, score)), reasons
     
+    def get_mixed_feed(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Get a mixed feed of articles from key categories.
+        Used for the 'All Categories' view to ensure diversity.
+        """
+        import random
+        
+        target_categories = ["Finance", "Technology", "Science", "Business", "Health"]
+        mixed_feed = []
+        
+        # Group articles by category
+        by_category = {cat: [] for cat in target_categories}
+        others = []
+        
+        for article in self._articles.values():
+            cat = article.get("category", "Other")
+            if cat in by_category:
+                by_category[cat].append(article)
+            else:
+                others.append(article)
+                
+        # Calculate articles per category to aim for
+        # We want roughly equal distribution
+        target_per_cat = max(1, limit // len(target_categories))
+        
+        # Select articles
+        for cat in target_categories:
+            articles = by_category[cat]
+            if articles:
+                # Get random sample if we have enough, otherwise take all
+                sample_size = min(len(articles), target_per_cat)
+                mixed_feed.extend(random.sample(articles, sample_size))
+        
+        # If we don't have enough, fill with remaining from target categories
+        if len(mixed_feed) < limit:
+            remaining_needed = limit - len(mixed_feed)
+            
+            # Pool all remaining articles from target categories
+            pool = []
+            for cat in target_categories:
+                # Articles not yet selected (this is a simple approximation, 
+                # strictly we should track IDs, but random.sample ensures unique within category block above.
+                # To be safe against duplicates if re-sampling:
+                already_selected_ids = {a['article_id'] for a in mixed_feed}
+                pool.extend([a for a in by_category[cat] if a['article_id'] not in already_selected_ids])
+            
+            # Add from pool
+            if pool:
+                take = min(len(pool), remaining_needed)
+                mixed_feed.extend(random.sample(pool, take))
+                
+        # If still not enough, fill with others
+        if len(mixed_feed) < limit and others:
+            remaining_needed = limit - len(mixed_feed)
+            take = min(len(others), remaining_needed)
+            mixed_feed.extend(random.sample(others, take))
+            
+        # Shuffle the final result so categories are mixed
+        random.shuffle(mixed_feed)
+        
+        return mixed_feed[:limit]
+    
     def get_personalized_feed(
         self,
         user_id: str,
         limit: int = 20,
-        exclude_viewed: bool = True
+        exclude_viewed: bool = True,
+        category: Optional[str] = None
     ) -> List[ArticleRecommendation]:
         """
         Get personalized article feed for a user.
@@ -142,6 +205,7 @@ class RecommendationEngine:
             user_id: User identifier
             limit: Max articles to return
             exclude_viewed: Whether to exclude already viewed articles
+            category: Optional category filter
         
         Returns:
             List of ArticleRecommendation sorted by score
@@ -151,6 +215,10 @@ class RecommendationEngine:
         recommendations = []
         
         for article_id, article in self._articles.items():
+            # Filter by category if provided
+            if category and category != "" and article.get("category") != category:
+                continue
+
             # Skip viewed if requested
             if exclude_viewed and article_id in user.viewed_articles:
                 continue
