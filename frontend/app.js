@@ -98,6 +98,47 @@ function debounce(func, wait) {
     };
 }
 
+// ============ Notifications ============
+
+/**
+ * Show a toast notification
+ */
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+
+    // Style based on type
+    const bgColor = type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)'
+        : type === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+            : 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: ${bgColor};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-weight: 500;
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        max-width: 300px;
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100px)';
+        notification.style.transition = 'all 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+}
+
 // ============ Live Data Functions ============
 
 /**
