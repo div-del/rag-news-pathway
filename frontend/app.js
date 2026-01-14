@@ -7,6 +7,7 @@ const API_BASE = '/api';
 let wsConnection = null;
 let currentArticleId = null;
 let articles = [];
+let comparisonData = { 1: [], 2: [] };
 
 // ============ Initialization ============
 
@@ -65,7 +66,12 @@ function initializeEventListeners() {
     // Comparison
     document.getElementById('compare-btn').addEventListener('click', compareArticles);
     document.getElementById('compare-select-1').addEventListener('change', updateComparePreview);
+    document.getElementById('compare-select-1').addEventListener('change', updateComparePreview);
     document.getElementById('compare-select-2').addEventListener('change', updateComparePreview);
+
+    // Auto-load comparison articles when category changes
+    document.getElementById('compare-cat-1').addEventListener('change', () => loadComparisonArticles(1));
+    document.getElementById('compare-cat-2').addEventListener('change', () => loadComparisonArticles(2));
     document.getElementById('compare-query').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') compareArticles();
     });
@@ -437,13 +443,45 @@ async function sendArticleChatMessage() {
 // ============ Comparison Functions ============
 
 // Update all compare dropdowns
-function updateCompareDropdowns() {
-    updateCompareDropdown(1);
-    updateCompareDropdown(2);
+async function updateCompareDropdowns() {
+    // Initial load for both slots based on their default/current categories
+    await loadComparisonArticles(1);
+    await loadComparisonArticles(2);
 }
 
-// Update specific compare dropdown based on its category filter
-function updateCompareDropdown(slotId) {
+// Fetch articles for a specific comparison slot
+async function loadComparisonArticles(slotId) {
+    const catSelect = document.getElementById(`compare-cat-${slotId}`);
+    if (!catSelect) return;
+
+    const category = catSelect.value;
+    const articleSelect = document.getElementById(`compare-select-${slotId}`);
+    const originalText = articleSelect.options[0] ? articleSelect.options[0].text : 'Select an article...';
+
+    // Show loading state in dropdown
+    articleSelect.innerHTML = '<option>Loading...</option>';
+    articleSelect.disabled = true;
+
+    // Use limit 20 to get a good selection
+    let url = `/news/feed?limit=20`;
+    if (category) {
+        url += `&category=${encodeURIComponent(category)}`;
+    }
+
+    try {
+        const data = await fetchAPI(url);
+        comparisonData[slotId] = data.articles || [];
+        renderCompareDropdown(slotId);
+    } catch (error) {
+        console.error(`Error loading comparison articles for slot ${slotId}:`, error);
+        articleSelect.innerHTML = '<option>Error loading articles</option>';
+    } finally {
+        articleSelect.disabled = false;
+    }
+}
+
+// Render specific compare dropdown from local comparisonData
+function renderCompareDropdown(slotId) {
     const catSelect = document.getElementById(`compare-cat-${slotId}`);
     const articleSelect = document.getElementById(`compare-select-${slotId}`);
 
@@ -452,23 +490,32 @@ function updateCompareDropdown(slotId) {
     const category = catSelect.value;
     const currentVal = articleSelect.value;
 
-    // Filter articles
-    let filteredArticles = articles;
+    // Filter articles from our specific slot data
+    // (They should already be filtered by the API, but double check)
+    let slotArticles = comparisonData[slotId] || [];
+
     if (category) {
-        filteredArticles = articles.filter(a => a.category === category);
+        slotArticles = slotArticles.filter(a => a.category === category);
     }
 
-    const options = filteredArticles.map(a =>
+    if (slotArticles.length === 0) {
+        articleSelect.innerHTML = '<option value="">No articles found for this category</option>';
+        return;
+    }
+
+    const options = slotArticles.map(a =>
         `<option value="${a.article_id}">${escapeHtml(truncate(a.title, 60))}</option>`
     ).join('');
 
     articleSelect.innerHTML = `<option value="">Select an article...</option>${options}`;
 
     // Restore selection if valid
-    if (currentVal && filteredArticles.some(a => a.article_id === currentVal)) {
+    if (currentVal && slotArticles.some(a => a.article_id === currentVal)) {
         articleSelect.value = currentVal;
     }
 }
+
+
 
 async function fetchCompareNews(slotId) {
     const btn = document.getElementById(`compare-fetch-${slotId}`);
@@ -494,12 +541,10 @@ async function fetchCompareNews(slotId) {
             showNotification('No new articles options found');
         }
 
-        // Reload global articles (resets main feed, but ensures we have data)
-        // We pass the current main filter to loadNewsFeed so we don't disrupt the main feed too much if user goes back
-        const mainCategory = document.getElementById('category-filter').value;
-        await loadNewsFeed(mainCategory);
+        // Reload just this slot
+        await loadComparisonArticles(slotId);
 
-        // The loadNewsFeed calls updateCompareDropdowns, so the dropdowns will refresh automatically
+        // The loadNewsFeed call is no longer needed here as we handle slots independently
 
     } catch (error) {
         showNotification('Error fetching news', 'error');
@@ -516,8 +561,8 @@ function updateComparePreview() {
     const preview1 = document.getElementById('compare-preview-1');
     const preview2 = document.getElementById('compare-preview-2');
 
-    const article1 = articles.find(a => a.article_id === id1);
-    const article2 = articles.find(a => a.article_id === id2);
+    const article1 = comparisonData[1].find(a => a.article_id === id1) || articles.find(a => a.article_id === id1);
+    const article2 = comparisonData[2].find(a => a.article_id === id2) || articles.find(a => a.article_id === id2);
 
     preview1.innerHTML = article1 ? `<strong>${escapeHtml(article1.category || 'News')}</strong><br>${escapeHtml(truncate(article1.title, 80))}` : 'No article selected';
     preview2.innerHTML = article2 ? `<strong>${escapeHtml(article2.category || 'News')}</strong><br>${escapeHtml(truncate(article2.title, 80))}` : 'No article selected';
