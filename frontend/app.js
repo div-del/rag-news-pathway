@@ -8,11 +8,15 @@ let wsConnection = null;
 let currentArticleId = null;
 let articles = [];
 
+// AI Chat state
+let aiChatSessionId = null;
+
 // ============ Initialization ============
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeNavigation();
     initializeEventListeners();
+    initializeAIChat();
     loadNewsFeed();
     loadStats();
     connectWebSocket();
@@ -50,11 +54,12 @@ function initializeEventListeners() {
         loadNewsFeed(category);
     });
 
-    // Chat
-    document.getElementById('send-chat-btn').addEventListener('click', sendChatMessage);
-    document.getElementById('chat-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendChatMessage();
+    // AI Chat
+    document.getElementById('send-ai-chat-btn').addEventListener('click', sendAIChatMessage);
+    document.getElementById('ai-chat-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendAIChatMessage();
     });
+    document.getElementById('new-chat-btn').addEventListener('click', createNewAIChat);
 
     // Article modal chat
     document.getElementById('send-article-chat-btn').addEventListener('click', sendArticleChatMessage);
@@ -70,6 +75,7 @@ function initializeEventListeners() {
         if (e.key === 'Enter') compareArticles();
     });
 }
+
 
 function debounce(func, wait) {
     let timeout;
@@ -240,6 +246,43 @@ function updateStats() {
     document.getElementById('last-update').textContent = `Updated ${new Date().toLocaleTimeString()}`;
 }
 
+function prependNewArticle(article) {
+    // Add to local articles array
+    const existingIndex = articles.findIndex(a => a.article_id === article.article_id);
+    if (existingIndex === -1) {
+        articles.unshift(article);
+    } else {
+        return; // Already exists
+    }
+
+    // Prepend to feed visually
+    const feedContainer = document.getElementById('news-feed');
+
+    // Remove empty state if present
+    const emptyState = feedContainer.querySelector('.empty-state');
+    if (emptyState) {
+        feedContainer.innerHTML = '';
+    }
+
+    // Create and prepend the card
+    const cardHTML = createNewsCard(article);
+    feedContainer.insertAdjacentHTML('afterbegin', cardHTML);
+
+    // Add highlight animation
+    const newCard = feedContainer.firstElementChild;
+    if (newCard) {
+        newCard.classList.add('new-article');
+        setTimeout(() => newCard.classList.remove('new-article'), 3000);
+    }
+
+    // Update stats and dropdowns
+    updateStats();
+    updateCompareDropdowns();
+
+    // Show notification
+    showNotification(`📰 New: ${truncate(article.title, 40)}`);
+}
+
 async function fetchNews() {
     const btn = document.getElementById('fetch-news-btn');
     const originalContent = btn.innerHTML;
@@ -340,21 +383,78 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
 });
 
-// ============ Chat Functions ============
+// ============ AI Chat Functions ============
 
-function setQuery(query) {
-    document.getElementById('chat-input').value = query;
-    document.getElementById('chat-input').focus();
+function setAIChatQuery(query) {
+    document.getElementById('ai-chat-input').value = query;
+    document.getElementById('ai-chat-input').focus();
 }
 
-async function sendChatMessage() {
-    const input = document.getElementById('chat-input');
+async function initializeAIChat() {
+    // Get or create session ID from localStorage
+    aiChatSessionId = localStorage.getItem('aiChatSessionId');
+
+    if (!aiChatSessionId) {
+        await createNewAIChat();
+    }
+}
+
+async function createNewAIChat() {
+    try {
+        const result = await fetchAPI('/ai-chat/sessions/new', { method: 'POST' });
+        aiChatSessionId = result.session_id;
+        localStorage.setItem('aiChatSessionId', aiChatSessionId);
+
+        // Clear the chat messages UI
+        const messagesDiv = document.getElementById('ai-chat-messages');
+        messagesDiv.innerHTML = `
+            <div class="message assistant">
+                <div class="message-avatar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                </div>
+                <div class="message-content">
+                    <div class="markdown-content">
+                        <p>👋 <strong>Hello! I'm your AI News Assistant.</strong></p>
+                        <p>I can help you:</p>
+                        <ul>
+                            <li>Answer questions about current news topics</li>
+                            <li>Summarize articles on specific subjects</li>
+                            <li>Find connections between different news stories</li>
+                            <li>Explain complex news developments</li>
+                        </ul>
+                        <p>I'll automatically search our article database - and if I don't have enough information, I'll fetch new articles for you!</p>
+                        <p><em>Try asking about technology, finance, business, or any current topic.</em></p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Hide sources panel
+        document.getElementById('ai-chat-sources').style.display = 'none';
+
+        showNotification('✨ Started new conversation');
+    } catch (error) {
+        console.error('Error creating new chat:', error);
+        showNotification('Error creating new chat', 'error');
+    }
+}
+
+async function sendAIChatMessage() {
+    const input = document.getElementById('ai-chat-input');
     const query = input.value.trim();
 
     if (!query) return;
 
+    // Ensure we have a session
+    if (!aiChatSessionId) {
+        await initializeAIChat();
+    }
+
     input.value = '';
-    const messagesDiv = document.getElementById('chat-messages');
+    const messagesDiv = document.getElementById('ai-chat-messages');
 
     // Add user message
     messagesDiv.innerHTML += `
@@ -379,27 +479,100 @@ async function sendChatMessage() {
                     <circle cx="12" cy="12" r="10"/>
                 </svg>
             </div>
-            <div class="message-content"><div class="loading">Thinking</div></div>
+            <div class="message-content">
+                <div class="loading-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <span class="loading-text">Searching articles and generating response...</span>
+            </div>
         </div>
     `;
     scrollToBottom(messagesDiv);
 
     try {
-        const result = await fetchAPI('/chat/query', {
+        const result = await fetchAPI('/ai-chat/message', {
             method: 'POST',
-            body: JSON.stringify({ query })
+            body: JSON.stringify({
+                session_id: aiChatSessionId,
+                message: query
+            })
         });
 
-        document.getElementById(loadingId).querySelector('.message-content').innerHTML =
-            `<p>${formatResponse(result.response)}</p>`;
+        // Render the response with markdown
+        const loadingMsg = document.getElementById(loadingId);
+        if (loadingMsg) {
+            let responseHtml = result.response || '';
+
+            // Use marked.js if available for markdown rendering
+            if (typeof marked !== 'undefined') {
+                responseHtml = marked.parse(responseHtml);
+            } else {
+                // Fallback formatting
+                responseHtml = formatResponse(responseHtml);
+            }
+
+            loadingMsg.querySelector('.message-content').innerHTML = `
+                <div class="markdown-content">${responseHtml}</div>
+                ${result.articles_fetched > 0 ? `
+                    <div class="fetch-notice">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"/>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                        </svg>
+                        <span>Fetched ${result.articles_fetched} new articles for this query</span>
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        // Update sources panel
+        if (result.sources && result.sources.length > 0) {
+            displayAIChatSources(result.sources);
+        }
 
     } catch (error) {
-        document.getElementById(loadingId).querySelector('.message-content').innerHTML =
-            '<p>Sorry, there was an error processing your question. Please try again.</p>';
+        const loadingMsg = document.getElementById(loadingId);
+        if (loadingMsg) {
+            loadingMsg.querySelector('.message-content').innerHTML = `
+                <p class="error-message">Sorry, I encountered an error processing your question. Please try again.</p>
+            `;
+        }
+        console.error('AI Chat error:', error);
     }
 
     scrollToBottom(messagesDiv);
 }
+
+function displayAIChatSources(sources) {
+    const sourcesPanel = document.getElementById('ai-chat-sources');
+    const sourcesList = document.getElementById('sources-list');
+
+    if (sources.length === 0) {
+        sourcesPanel.style.display = 'none';
+        return;
+    }
+
+    sourcesPanel.style.display = 'block';
+    sourcesList.innerHTML = sources.map(source => `
+        <div class="source-item" onclick="openArticle('${source.article_id}')">
+            <div class="source-title">${escapeHtml(source.title || 'Untitled')}</div>
+            <div class="source-meta">${escapeHtml(source.source || 'Unknown source')}</div>
+        </div>
+    `).join('');
+}
+
+// Legacy function for backwards compatibility
+function setQuery(query) {
+    setAIChatQuery(query);
+}
+
+// Keep old sendChatMessage for backwards compatibility if needed
+async function sendChatMessage() {
+    // Redirect to new AI Chat
+    sendAIChatMessage();
+}
+
+
 
 async function sendArticleChatMessage() {
     if (!currentArticleId) return;
@@ -554,7 +727,12 @@ async function compareArticles() {
             })
         });
 
-        resultDiv.innerHTML = `<p>${formatResponse(result.response)}</p>`;
+        // Use marked.js to render markdown properly
+        if (typeof marked !== 'undefined') {
+            resultDiv.innerHTML = `<div class="markdown-content">${marked.parse(result.response || '')}</div>`;
+        } else {
+            resultDiv.innerHTML = `<p>${formatResponse(result.response)}</p>`;
+        }
 
     } catch (error) {
         resultDiv.innerHTML = '<p style="color: var(--accent-danger)">Error comparing articles. Please try again.</p>';
@@ -577,9 +755,14 @@ function connectWebSocket() {
 
         wsConnection.onmessage = (event) => {
             if (event.data !== 'pong') {
-                const data = JSON.parse(event.data);
-                if (data.type === 'new_article') {
-                    loadNewsFeed();
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'new_article' && data.article) {
+                        // Prepend new article to the feed
+                        prependNewArticle(data.article);
+                    }
+                } catch (e) {
+                    console.debug('Non-JSON WebSocket message:', event.data);
                 }
             }
         };

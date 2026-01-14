@@ -132,7 +132,7 @@
                 </div>
             </section>
 
-            <!-- Chat Section -->
+            <!-- AI Chat Section -->
             <section id="chat-section" class="section">
                 <div class="chat-layout">
                     <div class="chat-main">
@@ -140,21 +140,27 @@
                             <div class="chat-title">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                                 </svg>
                                 <div>
-                                    <h2>Ask AI About News</h2>
-                                    <span>Get insights from all indexed articles</span>
+                                    <h2>AI News Assistant</h2>
+                                    <span>Powered by Mistral • Remembers conversation context</span>
                                 </div>
                             </div>
-                            <div class="chat-stats">
-                                <span id="indexed-count">0 articles indexed</span>
+                            <div class="chat-actions">
+                                <button id="new-chat-btn" class="btn-secondary" title="Start new conversation">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>
+                                    <span>New Chat</span>
+                                </button>
+                                <span id="indexed-count" class="chat-stats-badge">0 articles indexed</span>
                             </div>
                         </div>
 
-                        <div id="chat-messages" class="chat-messages">
+                        <div id="ai-chat-messages" class="chat-messages">
                             <div class="message assistant">
                                 <div class="message-avatar">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -164,17 +170,40 @@
                                     </svg>
                                 </div>
                                 <div class="message-content">
-                                    <p>Hello! I'm your AI news analyst. I can answer questions about the latest news
-                                        articles. Try asking about technology, science, business, or any current topic!
-                                    </p>
+                                    <div class="markdown-content">
+                                        <p>👋 <strong>Hello! I'm your AI News Assistant.</strong></p>
+                                        <p>I can help you:</p>
+                                        <ul>
+                                            <li>Answer questions about current news topics</li>
+                                            <li>Summarize articles on specific subjects</li>
+                                            <li>Find connections between different news stories</li>
+                                            <li>Explain complex news developments</li>
+                                        </ul>
+                                        <p>I'll automatically search our article database - and if I don't have enough
+                                            information, I'll fetch new articles for you!</p>
+                                        <p><em>Try asking about technology, finance, business, or any current
+                                                topic.</em></p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
+                        <div id="ai-chat-sources" class="chat-sources-panel" style="display: none;">
+                            <div class="sources-header">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <span>Sources Used</span>
+                            </div>
+                            <div id="sources-list" class="sources-list"></div>
+                        </div>
+
                         <div class="chat-input-area">
                             <div class="chat-input-wrapper">
-                                <input type="text" id="chat-input" placeholder="Ask anything about current news...">
-                                <button id="send-chat-btn" class="send-btn">
+                                <input type="text" id="ai-chat-input" placeholder="Ask anything about current news...">
+                                <button id="send-ai-chat-btn" class="send-btn">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">
                                         <line x1="22" y1="2" x2="11" y2="13" />
@@ -183,16 +212,24 @@
                                 </button>
                             </div>
                             <div class="chat-hints">
-                                <span class="hint" onclick="setQuery('What is the latest in technology?')">Latest in
-                                    tech</span>
-                                <span class="hint" onclick="setQuery('Summarize today\\'s business news')">Business
+                                <span class="hint"
+                                    onclick="setAIChatQuery('What is the latest news about AI and technology?')">Latest
+                                    AI news</span>
+                                <span class="hint"
+                                    onclick="setAIChatQuery('Summarize today\\'s top business stories')">Business
                                     summary</span>
-                                <span class="hint" onclick="setQuery('Any news about AI?')">AI news</span>
+                                <span class="hint"
+                                    onclick="setAIChatQuery('What are the major headlines today?')">Today's
+                                    headlines</span>
+                                <span class="hint"
+                                    onclick="setAIChatQuery('Tell me about recent developments in finance')">Finance
+                                    updates</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
+
 
             <!-- Compare Section -->
             <section id="compare-section" class="section">
@@ -375,7 +412,9 @@
         </footer>
     </div>
 
-    <script src="/static/app.js?v=2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/app.js?v=3"></script>
+
 </body>
 
 </html>

@@ -62,7 +62,7 @@ class Article(Base):
     article_id = Column(String(255), unique=True, nullable=False, index=True)
     
     # Article content
-    url = Column(Text, nullable=False)
+    url = Column(Text, nullable=False, unique=True)
     title = Column(Text, nullable=False)
     content = Column(Text)
     author = Column(String(255))
@@ -70,13 +70,16 @@ class Article(Base):
     # Metadata
     category = Column(String(100), index=True)
     source = Column(String(255))
-    published_date = Column(DateTime, index=True)
+    published_date = Column(String(255))  # Store as string for compatibility
+    description = Column(Text, nullable=True)
+    image_url = Column(Text, nullable=True)
+    language = Column(String(10), nullable=True)
     
     # Topics extracted (JSON array)
     topics = Column(JSON)  # e.g., ['Tesla', 'EV', 'Technology']
     
     # Timestamps
-    ingested_at = Column(DateTime, default=datetime.utcnow, index=True)
+    scraped_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
@@ -170,3 +173,20 @@ class UserOnboarding(Base):
     # Metadata
     completed_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ChatSession(Base):
+    """Store AI chat sessions with conversation history"""
+    __tablename__ = "chat_sessions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String(255), unique=True, nullable=False, index=True)
+    user_id = Column(String(255), nullable=True, index=True)
+    
+    # Conversation messages (JSON array of {role, content, timestamp, sources})
+    messages = Column(JSON)
+    
+    # Metadata
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

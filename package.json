@@ -5,11 +5,13 @@
   "scripts": {
     "server": "./venv/bin/python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000",
     "server:prod": "cd api && python -m uvicorn main:app --host 0.0.0.0 --port 8000",
+    "scraper": "./venv/bin/python -m uvicorn scraper_service:app --reload --host 0.0.0.0 --port 8001",
     "onboarding": "cd frontend/onboarding-app && npm run dev",
     "install:backend": "pip install -r requirements.txt",
     "install:frontend": "cd frontend/onboarding-app && npm install",
     "install:all": "npm run install:backend && npm run install:frontend",
     "dev": "concurrently \"npm run server\" \"npm run onboarding\"",
+    "dev:full": "concurrently \"npm run scraper\" \"npm run server\" \"npm run onboarding\"",
     "start": "npm run server"
   },
   "keywords": [

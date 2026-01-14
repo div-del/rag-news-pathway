@@ -77,16 +77,122 @@ class OnboardingRequest(BaseModel):
     importance_accurate: int = Field(..., ge=1, le=5, description="Q15b: Importance of accuracy")
     importance_engaging: int = Field(..., ge=1, le=5, description="Q15c: Importance of engagement")
 
-# Global instances
+class AIChatRequest(BaseModel):
+    """Request model for AI Chat messages"""
+    session_id: str = Field(..., description="Chat session ID")
+    message: str = Field(..., description="User's message")
+    user_id: Optional[str] = Field(None, description="Optional user identifier")
+
+
 news_connector: Optional[SerperNewsConnector] = None
 article_scraper: Optional[ArticleScraper] = None
 news_streaming_task: Optional[asyncio.Task] = None
+background_fetch_task: Optional[asyncio.Task] = None
+
+# WebSocket connection manager for real-time updates
+active_websockets: List[WebSocket] = []
+
+
+async def broadcast_article(article_data: Dict[str, Any]):
+    """Broadcast a new article to all connected WebSocket clients"""
+    message = json.dumps({
+        "type": "new_article",
+        "article": article_data
+    })
+    disconnected = []
+    for ws in active_websockets:
+        try:
+            await ws.send_text(message)
+        except Exception:
+            disconnected.append(ws)
+    for ws in disconnected:
+        if ws in active_websockets:
+            active_websockets.remove(ws)
+
+
+async def fetch_and_broadcast_articles(category: str = None, num_results: int = 5):
+    """Fetch articles and broadcast each one as it's scraped"""
+    global news_connector, article_scraper
+    
+    if not news_connector or not article_scraper:
+        return 0
+    
+    # Fetch news URLs
+    try:
+        if category:
+            results = await news_connector.search_news(
+                query=f"{category} news",
+                num_results=num_results
+            )
+        else:
+            results = await news_connector.fetch_all_categories()
+        
+        if not results:
+            return 0
+        
+        rag = get_rag_engine()
+        rec_engine = get_recommendation_engine()
+        
+        count = 0
+        for r in results:
+            try:
+                # Scrape single article
+                article = await article_scraper.scrape_article(
+                    url=r.url,
+                    category=category or r.category,
+                    source=r.source
+                )
+                
+                if article:
+                    article_dict = article.to_dict()
+                    
+                    # Add to engines (this also persists to SQLite)
+                    if rag.add_document(article_dict):
+                        rec_engine.add_article(article_dict)
+                        count += 1
+                        
+                        # Broadcast immediately to all connected clients
+                        await broadcast_article(article_dict)
+                        logger.info(f"Broadcasted article: {article.title[:50]}...")
+                        
+            except Exception as e:
+                logger.error(f"Error processing article {r.url}: {e}")
+                continue
+        
+        return count
+        
+    except Exception as e:
+        logger.error(f"Error in fetch_and_broadcast: {e}")
+        return 0
+
+
+async def background_news_fetcher():
+    """Background task that fetches news every 5 minutes"""
+    categories = ["Technology", "Business", "Health", "Entertainment", "Science"]
+    category_index = 0
+    
+    await asyncio.sleep(30)  # Initial delay to let app start up
+    
+    while True:
+        try:
+            category = categories[category_index % len(categories)]
+            logger.info(f"Background fetch starting for: {category}")
+            
+            count = await fetch_and_broadcast_articles(category=category, num_results=5)
+            logger.info(f"Background fetch complete: {count} new articles indexed")
+            
+            category_index += 1
+            
+        except Exception as e:
+            logger.error(f"Background fetch error: {e}")
+        
+        await asyncio.sleep(300)  # 5 minutes
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler"""
-    global news_connector, article_scraper
+    global news_connector, article_scraper, background_fetch_task
     
     logger.info("Starting Live AI News Platform...")
     
@@ -99,12 +205,17 @@ async def lifespan(app: FastAPI):
     get_profile_manager()
     get_recommendation_engine()
     
-    logger.info("All components initialized")
+    # Start background news fetcher
+    background_fetch_task = asyncio.create_task(background_news_fetcher())
+    
+    logger.info("All components initialized, background fetcher started")
     
     yield
     
     # Cleanup
     logger.info("Shutting down...")
+    if background_fetch_task:
+        background_fetch_task.cancel()
     if news_connector:
         news_connector.stop()
     if article_scraper:
@@ -352,7 +463,78 @@ async def chat_compare_articles(request: ComparisonRequest):
     return response.to_dict()
 
 
+# ============ AI Chat Endpoints ============
+
+@app.post("/api/ai-chat/message")
+async def ai_chat_message(request: AIChatRequest):
+    """
+    Send a message to the AI Chat.
+    Uses intelligent article retrieval: searches local first, fetches new if needed.
+    Maintains conversation history for context.
+    """
+    from api.ai_chat_engine import get_ai_chat_engine
+    
+    chat_engine = get_ai_chat_engine()
+    
+    try:
+        response = await chat_engine.chat(
+            session_id=request.session_id,
+            message=request.message,
+            user_id=request.user_id
+        )
+        
+        return response.to_dict()
+        
+    except Exception as e:
+        logger.error(f"AI Chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ai-chat/sessions/new")
+async def create_ai_chat_session(user_id: Optional[str] = None):
+    """Create a new AI chat session"""
+    from api.ai_chat_engine import get_ai_chat_engine
+    
+    chat_engine = get_ai_chat_engine()
+    session_id = chat_engine.create_session(user_id)
+    
+    return {
+        "session_id": session_id,
+        "created": True
+    }
+
+
+@app.get("/api/ai-chat/sessions/{session_id}")
+async def get_ai_chat_session(session_id: str):
+    """Get chat session history"""
+    from api.ai_chat_engine import get_ai_chat_engine
+    
+    chat_engine = get_ai_chat_engine()
+    history = chat_engine.get_session_history(session_id)
+    
+    return {
+        "session_id": session_id,
+        "messages": history,
+        "message_count": len(history)
+    }
+
+
+@app.delete("/api/ai-chat/sessions/{session_id}")
+async def clear_ai_chat_session(session_id: str):
+    """Clear a chat session"""
+    from api.ai_chat_engine import get_ai_chat_engine
+    
+    chat_engine = get_ai_chat_engine()
+    success = chat_engine.clear_session(session_id)
+    
+    return {
+        "session_id": session_id,
+        "cleared": success
+    }
+
+
 # ============ User Endpoints ============
+
 
 @app.post("/api/user/interaction")
 async def track_user_interaction(request: InteractionRequest):
@@ -708,6 +890,7 @@ async def websocket_feed(websocket: WebSocket):
     Receives new articles as they are indexed.
     """
     await manager.connect(websocket, "feed")
+    active_websockets.append(websocket)
     
     try:
         while True:
@@ -720,6 +903,8 @@ async def websocket_feed(websocket: WebSocket):
                 
     except WebSocketDisconnect:
         manager.disconnect(websocket, "feed")
+        if websocket in active_websockets:
+            active_websockets.remove(websocket)
 
 
 @app.websocket("/ws/chat/{session_id}")

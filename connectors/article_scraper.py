@@ -1,6 +1,6 @@
 """
-Article Scraper using news-please library.
-Extracts full article content from URLs.
+Article Scraper using news-please API service.
+Extracts full article content from URLs via the scraper microservice.
 """
 
 import asyncio
@@ -11,11 +11,14 @@ from dataclasses import dataclass, asdict, field
 import hashlib
 from concurrent.futures import ThreadPoolExecutor
 
-from newsplease import NewsPlease
+import httpx
 
 from config import Config
 
 logger = logging.getLogger(__name__)
+
+# Scraper service configuration
+SCRAPER_SERVICE_URL = "http://localhost:8001"
 
 
 @dataclass
@@ -56,14 +59,17 @@ class ArticleContent:
 
 class ArticleScraper:
     """
-    Scrapes full article content from URLs using news-please.
-    Runs extraction in a thread pool to avoid blocking async code.
+    Scrapes full article content from URLs using the scraper service API.
+    Falls back to direct news-please if service is unavailable.
     """
     
-    def __init__(self, max_workers: int = 5):
+    def __init__(self, max_workers: int = 5, service_url: str = None):
         self.max_workers = max_workers
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._cache: Dict[str, ArticleContent] = {}
+        self._service_url = service_url or SCRAPER_SERVICE_URL
+        self._use_service = True  # Try to use service first
+        self._http_client = httpx.AsyncClient(timeout=30.0)
         
     def _generate_article_id(self, url: str) -> str:
         """Generate unique article ID from URL"""
@@ -100,53 +106,130 @@ class ArticleScraper:
         
         return list(set(topics))[:10]  # Limit to 10 topics
     
-    def _scrape_article_sync(self, url: str, category: str = "", source: str = "") -> Optional[ArticleContent]:
+    async def _scrape_via_service(self, url: str, category: str = "", source: str = "") -> Optional[ArticleContent]:
         """
-        Synchronous article scraping using news-please.
-        Called in thread pool.
+        Scrape article via the scraper service API.
         """
         try:
-            article = NewsPlease.from_url(url)
+            response = await self._http_client.post(
+                f"{self._service_url}/scrape",
+                json={"url": url, "timeout": 15}
+            )
             
-            if article is None:
-                logger.warning(f"Could not extract article from: {url}")
+            if response.status_code != 200:
+                logger.warning(f"Service returned {response.status_code} for {url}")
+                return None
+            
+            data = response.json()
+            
+            if not data.get("success"):
+                error = data.get("error", "Unknown error")
+                logger.warning(f"Service failed for {url}: {error}")
+                return None
+            
+            # Build ArticleContent from response
+            title = data.get("title", "")
+            content = data.get("content", "")
+            
+            if not title or not content:
+                logger.warning(f"Empty content from service for {url}")
                 return None
             
             article_id = self._generate_article_id(url)
-            
-            # Extract publish date
-            publish_date = None
-            if article.date_publish:
-                publish_date = article.date_publish.isoformat()
-            
-            # Extract content
-            content = article.maintext or ""
-            title = article.title or ""
-            
-            # Extract topics
             topics = self._extract_topics(title, content)
+            
+            authors = data.get("authors", [])
+            author_str = ", ".join(authors) if authors else None
             
             extracted = ArticleContent(
                 article_id=article_id,
                 url=url,
                 title=title,
                 content=content,
-                author=", ".join(article.authors) if article.authors else None,
-                publish_date=publish_date,
-                source=source or article.source_domain or "",
+                author=author_str,
+                publish_date=data.get("publish_date"),
+                source=source or data.get("source_domain", "") or "",
                 category=category,
-                description=article.description,
-                image_url=article.image_url,
-                language=article.language,
+                description=data.get("description"),
+                image_url=data.get("image_url"),
+                language=data.get("language"),
+                topics=topics,
+                scraped_at=data.get("scraped_at", datetime.utcnow().isoformat())
+            )
+            
+            logger.info(f"Scraped via service: {title[:50]}... ({len(content)} chars)")
+            return extracted
+            
+        except httpx.ConnectError:
+            logger.warning("Scraper service unavailable, falling back to direct scraping")
+            self._use_service = False
+            return await self._scrape_direct(url, category, source)
+        except Exception as e:
+            logger.error(f"Service error for {url}: {e}")
+            return None
+    
+    async def _scrape_direct(self, url: str, category: str = "", source: str = "") -> Optional[ArticleContent]:
+        """
+        Direct scraping using news-please (fallback).
+        """
+        try:
+            from newsplease import NewsPlease
+            
+            # Browser-like headers
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                'Accept': 'text/html,application/xhtml+xml',
+            }
+            
+            loop = asyncio.get_event_loop()
+            article = await loop.run_in_executor(
+                self._executor,
+                lambda: NewsPlease.from_url(url, request_args={'headers': headers, 'timeout': 15})
+            )
+            
+            if article is None or isinstance(article, dict):
+                logger.warning(f"Direct scrape failed for {url}")
+                return None
+            
+            title = getattr(article, 'title', None) or ""
+            content = getattr(article, 'maintext', None) or ""
+            
+            if not title or not content or len(content) < 100:
+                logger.warning(f"Insufficient content from direct scrape: {url}")
+                return None
+            
+            article_id = self._generate_article_id(url)
+            topics = self._extract_topics(title, content)
+            
+            authors = getattr(article, 'authors', None)
+            author_str = ", ".join(authors) if authors else None
+            
+            publish_date = None
+            if getattr(article, 'date_publish', None):
+                try:
+                    publish_date = article.date_publish.isoformat()
+                except:
+                    pass
+            
+            return ArticleContent(
+                article_id=article_id,
+                url=url,
+                title=title,
+                content=content,
+                author=author_str,
+                publish_date=publish_date,
+                source=source or getattr(article, 'source_domain', "") or "",
+                category=category,
+                description=getattr(article, 'description', None),
+                image_url=getattr(article, 'image_url', None),
+                language=getattr(article, 'language', None),
                 topics=topics
             )
             
-            logger.info(f"Scraped: {title[:50]}... ({len(content)} chars)")
-            return extracted
-            
         except Exception as e:
-            logger.error(f"Error scraping {url}: {e}")
+            logger.error(f"Direct scrape error for {url}: {e}")
             return None
+
     
     async def scrape_article(
         self,
@@ -171,15 +254,11 @@ class ArticleScraper:
             logger.debug(f"Cache hit for: {url}")
             return self._cache[article_id]
         
-        # Run in thread pool
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            self._executor,
-            self._scrape_article_sync,
-            url,
-            category,
-            source
-        )
+        # Try service first, fall back to direct scraping
+        if self._use_service:
+            result = await self._scrape_via_service(url, category, source)
+        else:
+            result = await self._scrape_direct(url, category, source)
         
         # Cache successful results
         if result:

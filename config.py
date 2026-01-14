@@ -37,10 +37,10 @@ class Config:
     NEWS_FETCH_INTERVAL_SECONDS = 300  # 5 minutes
     
     # LLM Settings (OpenRouter)
-    LLM_MODEL = "openai/gpt-4o"  # Defaulting to 4o via OpenRouter, can be changed
+    LLM_MODEL = "mistralai/devstral-2512:free"  # Free model via OpenRouter
     LLM_BASE_URL = "https://openrouter.ai/api/v1"
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", 0.7))
-    LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", 2000))
+    LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", 1500))  # Reduced to stay within free tier limits
     
     # Embedding Settings
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")

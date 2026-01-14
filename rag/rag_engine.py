@@ -68,17 +68,45 @@ class RAGEngine:
             base_url=self.base_url
         )
         
-        # In-memory document store (before Pathway integration)
+        # In-memory document store (backed by SQLite)
         self._documents: Dict[str, Dict[str, Any]] = {}
         
-        logger.info(f"RAG Engine initialized with model: {self.model}")
+        # Load existing articles from SQLite
+        self._load_from_store()
+        
+        logger.info(f"RAG Engine initialized with model: {self.model}, loaded {len(self._documents)} articles")
     
-    def add_document(self, document: Dict[str, Any]):
-        """Add a document to the in-memory store"""
+    def _load_from_store(self):
+        """Load all articles from SQLite into memory"""
+        try:
+            from api.article_store import get_article_store
+            store = get_article_store()
+            articles = store.get_all_articles()
+            for article in articles:
+                article_id = article.get("article_id")
+                if article_id:
+                    self._documents[article_id] = article
+            logger.info(f"Loaded {len(articles)} articles from SQLite")
+        except Exception as e:
+            logger.warning(f"Could not load articles from store: {e}")
+    
+    def add_document(self, document: Dict[str, Any]) -> bool:
+        """Add a document to the in-memory store and persist to SQLite"""
         article_id = document.get("article_id")
         if article_id:
             self._documents[article_id] = document
             logger.debug(f"Added document: {article_id}")
+            
+            # Persist to SQLite
+            try:
+                from api.article_store import get_article_store
+                store = get_article_store()
+                return store.add_article(document)
+            except Exception as e:
+                logger.warning(f"Could not persist to store: {e}")
+                return True  # Still added to memory
+        return False
+
     
     def _simple_search(
         self,
