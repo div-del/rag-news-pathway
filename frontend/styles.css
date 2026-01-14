@@ -1,31 +1,32 @@
 /* Live AI News Platform - Premium Design */
 
 :root {
-    /* Colors */
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #13131a;
-    --bg-tertiary: #1a1a24;
-    --bg-card: #1e1e2a;
-    --bg-hover: #252532;
+    /* LiveLens Theme - Future AI */
+    --bg-primary: #050508;
+    --bg-secondary: #0a0a12;
+    --bg-tertiary: #12121f;
+    --bg-card: rgba(20, 20, 35, 0.6);
+    --bg-hover: rgba(30, 30, 50, 0.6);
 
     --text-primary: #ffffff;
-    --text-secondary: #a0a0b8;
-    --text-tertiary: #6b6b80;
+    --text-secondary: #b4b4d0;
+    --text-tertiary: #757590;
 
-    --accent-primary: #6366f1;
-    --accent-secondary: #8b5cf6;
-    --accent-tertiary: #a855f7;
-    --accent-success: #10b981;
-    --accent-warning: #f59e0b;
-    --accent-danger: #ef4444;
+    --accent-primary: #00f2ff;
+    --accent-secondary: #7000ff;
+    --accent-tertiary: #ff0055;
+    --accent-success: #00ffaa;
+    --accent-warning: #ffbf00;
+    --accent-danger: #ff0055;
 
-    --border-color: rgba(255, 255, 255, 0.08);
-    --border-hover: rgba(255, 255, 255, 0.15);
+    --border-color: rgba(255, 255, 255, 0.12);
+    --border-hover: rgba(255, 255, 255, 0.25);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.08);
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-    --gradient-card: linear-gradient(145deg, rgba(30, 30, 42, 0.9), rgba(26, 26, 36, 0.9));
-    --gradient-glow: radial-gradient(circle at center, rgba(99, 102, 241, 0.15), transparent 70%);
+    --gradient-primary: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+    --gradient-card: linear-gradient(145deg, rgba(20, 20, 35, 0.8), rgba(15, 15, 25, 0.9));
+    --gradient-glow: radial-gradient(circle at center, rgba(0, 242, 255, 0.15), transparent 70%);
 
     /* Shadows */
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -81,40 +82,41 @@ body {
     z-index: 0;
 }
 
+/* Enhanced Background */
 .gradient-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.4;
-    animation: float 20s ease-in-out infinite;
+    filter: blur(100px);
+    opacity: 0.5;
+    animation: float 15s ease-in-out infinite;
+    mix-blend-mode: screen;
 }
 
 .orb-1 {
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.3), transparent 70%);
-    top: -200px;
-    right: -100px;
-    animation-delay: 0s;
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, rgba(0, 242, 255, 0.2), transparent 70%);
+    top: -300px;
+    right: -200px;
 }
 
 .orb-2 {
-    width: 500px;
-    height: 500px;
-    background: radial-gradient(circle, rgba(139, 92, 246, 0.25), transparent 70%);
-    bottom: -150px;
-    left: -100px;
-    animation-delay: -7s;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(112, 0, 255, 0.2), transparent 70%);
+    bottom: -200px;
+    left: -200px;
+    animation-delay: -5s;
 }
 
 .orb-3 {
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(168, 85, 247, 0.2), transparent 70%);
-    top: 50%;
-    left: 50%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255, 0, 85, 0.15), transparent 70%);
+    top: 40%;
+    left: 60%;
     transform: translate(-50%, -50%);
-    animation-delay: -14s;
+    animation-delay: -10s;
 }
 
 @keyframes float {
@@ -144,10 +146,10 @@ body {
     left: 0;
     right: 0;
     height: var(--header-height);
-    background: rgba(10, 10, 15, 0.8);
+    background: rgba(5, 5, 8, 0.7);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: var(--border-color);
     z-index: 100;
 }
 
@@ -442,13 +444,13 @@ body {
 
 /* News Card */
 .news-card {
-    background: var(--gradient-card);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: var(--glass-border);
     border-radius: 16px;
     padding: 1.5rem;
     cursor: pointer;
-    transition: all var(--transition-normal);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
 }
@@ -459,13 +461,14 @@ body {
     inset: 0;
     background: var(--gradient-glow);
     opacity: 0;
-    transition: opacity var(--transition-normal);
+    transition: opacity 0.4s ease;
+    z-index: 0;
 }
 
 .news-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-5px) scale(1.02);
     border-color: var(--accent-primary);
-    box-shadow: var(--shadow-lg), 0 0 30px rgba(99, 102, 241, 0.15);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 242, 255, 0.1);
 }
 
 .news-card:hover::before {

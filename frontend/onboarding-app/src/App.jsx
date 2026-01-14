@@ -295,6 +295,13 @@ function App() {
         <div className="gradient-orb orb-3"></div>
       </div>
 
+      <header className="app-header">
+        <div className="logo-container">
+          <div className="logo-icon">🔮</div>
+          <span className="logo-text">LiveLens</span>
+        </div>
+      </header>
+
       <div className="onboarding-container">
         {/* Progress */}
         <div className="progress-container">

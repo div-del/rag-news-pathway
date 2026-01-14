@@ -224,7 +224,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Live AI News Platform",
+    title="Live Lens",
     description="Real-time news analysis with adaptive RAG using Pathway",
     version="1.0.0",
     lifespan=lifespan

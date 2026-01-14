@@ -1,24 +1,27 @@
 /* Onboarding React App - Premium Dark Theme */
 
 :root {
-  /* Colors */
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #13131a;
-  --bg-tertiary: #1a1a24;
-  --bg-card: #1e1e2a;
+  /* LiveLens Theme - Future AI */
+  --bg-primary: #050508;
+  --bg-secondary: #0a0a12;
+  --bg-tertiary: #12121f;
+  --bg-card: rgba(20, 20, 35, 0.6);
 
   --text-primary: #ffffff;
-  --text-secondary: #a0a0b8;
-  --text-tertiary: #6b6b80;
+  --text-secondary: #b4b4d0;
+  --text-tertiary: #757590;
 
-  --accent-primary: #6366f1;
-  --accent-secondary: #8b5cf6;
-  --accent-tertiary: #a855f7;
+  --accent-primary: #00f2ff;
+  --accent-secondary: #7000ff;
+  --accent-tertiary: #ff0055;
 
-  --border-color: rgba(255, 255, 255, 0.08);
+  --border-color: rgba(255, 255, 255, 0.12);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+  --gradient-primary: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+  --gradient-accent: linear-gradient(135deg, #00f2ff 0%, #7000ff 100%);
+  --gradient-glow: radial-gradient(circle, rgba(0, 242, 255, 0.15) 0%, transparent 70%);
 }
 
 * {
@@ -63,39 +66,41 @@ body {
   z-index: 0;
 }
 
+/* Enhanced Background */
 .gradient-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.4;
-  animation: float 20s ease-in-out infinite;
+  filter: blur(100px);
+  opacity: 0.5;
+  animation: float 15s ease-in-out infinite;
+  mix-blend-mode: screen;
 }
 
 .orb-1 {
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.3), transparent 70%);
-  top: -200px;
-  right: -100px;
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(circle, rgba(0, 242, 255, 0.2), transparent 70%);
+  top: -300px;
+  right: -200px;
 }
 
 .orb-2 {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.25), transparent 70%);
-  bottom: -150px;
-  left: -100px;
-  animation-delay: -7s;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(112, 0, 255, 0.2), transparent 70%);
+  bottom: -200px;
+  left: -200px;
+  animation-delay: -5s;
 }
 
 .orb-3 {
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.2), transparent 70%);
-  top: 50%;
-  left: 50%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(255, 0, 85, 0.15), transparent 70%);
+  top: 40%;
+  left: 60%;
   transform: translate(-50%, -50%);
-  animation-delay: -14s;
+  animation-delay: -10s;
 }
 
 @keyframes float {
@@ -265,27 +270,29 @@ body {
   gap: 0.5rem;
   padding: 0.875rem 1.25rem;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: var(--glass-border);
   border-radius: 50px;
   color: var(--text-secondary);
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
 }
 
 .option-pill:hover {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
-  color: var(--text-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border-color: var(--accent-primary);
+  color: #fff;
   transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
 }
 
 .option-pill.selected {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
-  border-color: var(--accent-primary);
-  color: var(--text-primary);
-  box-shadow: 0 0 25px rgba(99, 102, 241, 0.3);
+  background: var(--gradient-accent);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 0 25px rgba(0, 242, 255, 0.4);
 }
 
 .option-icon {
@@ -304,25 +311,27 @@ body {
   align-items: center;
   gap: 1rem;
   padding: 1.25rem 1.5rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: var(--glass-border);
   border-radius: 16px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
   width: 100%;
+  backdrop-filter: blur(12px);
 }
 
 .option-card:hover {
-  background: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.3);
-  transform: translateX(8px);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent-primary);
+  transform: translateX(8px) scale(1.01);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .option-card.selected {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+  background: rgba(0, 242, 255, 0.1);
   border-color: var(--accent-primary);
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 30px rgba(0, 242, 255, 0.15);
 }
 
 .option-card-icon {
@@ -597,3 +606,48 @@ body {
     font-size: 0.95rem;
   }
 }
+/* Header */
+.app-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 1.5rem 2rem;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  border: var(--glass-border);
+  backdrop-filter: blur(10px);
+}
+
+.logo-icon {
+  font-size: 1.5rem;
+  animation: pulse 2s infinite;
+}
+
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: var(--gradient-accent);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
