@@ -168,10 +168,63 @@ class ArticleScraper:
             logger.error(f"Service error for {url}: {e}")
             return None
     
+    async def _scrape_soup_fallback(self, url: str) -> Optional[dict]:
+        """Fallback to simple BeautifulSoup scraping"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            }
+            
+            async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
+                response = await client.get(url, headers=headers, timeout=15.0)
+                
+            if response.status_code != 200:
+                return None
+                
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Remove scripts and styles
+            for script in soup(["script", "style", "nav", "footer", "header", "iframe"]):
+                script.decompose()
+                
+            title = soup.title.string if soup.title else ""
+            if not title:
+                h1 = soup.find('h1')
+                title = h1.get_text().strip() if h1 else ""
+                
+            # Get text from paragraphs
+            paragraphs = soup.find_all('p')
+            text_content = "\n\n".join([p.get_text().strip() for p in paragraphs if len(p.get_text().strip()) > 40])
+            
+            if len(text_content) < 100:
+                return None
+                
+            return {
+                "title": title.strip(),
+                "content": text_content,
+                "description": "", 
+                "source_domain": url.split("//")[-1].split("/")[0]
+            }
+            
+        except Exception as e:
+            logger.error(f"Soup fallback failed for {url}: {e}")
+            return None
+
     async def _scrape_direct(self, url: str, category: str = "", source: str = "") -> Optional[ArticleContent]:
         """
         Direct scraping using news-please (fallback).
         """
+        title = ""
+        content = ""
+        authors = None
+        publish_date = None
+        description = None
+        image_url = None
+        source_domain = ""
+
+        # Try news-please first
         try:
             from newsplease import NewsPlease
             
@@ -187,48 +240,54 @@ class ArticleScraper:
                 lambda: NewsPlease.from_url(url, request_args={'headers': headers, 'timeout': 15})
             )
             
-            if article is None or isinstance(article, dict):
-                logger.warning(f"Direct scrape failed for {url}")
-                return None
-            
-            title = getattr(article, 'title', None) or ""
-            content = getattr(article, 'maintext', None) or ""
-            
-            if not title or not content or len(content) < 100:
-                logger.warning(f"Insufficient content from direct scrape: {url}")
-                return None
-            
-            article_id = self._generate_article_id(url)
-            topics = self._extract_topics(title, content)
-            
-            authors = getattr(article, 'authors', None)
-            author_str = ", ".join(authors) if authors else None
-            
-            publish_date = None
-            if getattr(article, 'date_publish', None):
-                try:
-                    publish_date = article.date_publish.isoformat()
-                except:
-                    pass
-            
-            return ArticleContent(
-                article_id=article_id,
-                url=url,
-                title=title,
-                content=content,
-                author=author_str,
-                publish_date=publish_date,
-                source=source or getattr(article, 'source_domain', "") or "",
-                category=category,
-                description=getattr(article, 'description', None),
-                image_url=getattr(article, 'image_url', None),
-                language=getattr(article, 'language', None),
-                topics=topics
-            )
-            
+            if article and not isinstance(article, dict):
+                title = getattr(article, 'title', None) or ""
+                content = getattr(article, 'maintext', None) or ""
+                authors = getattr(article, 'authors', None)
+                description = getattr(article, 'description', None)
+                image_url = getattr(article, 'image_url', None)
+                source_domain = getattr(article, 'source_domain', "") or ""
+                if getattr(article, 'date_publish', None):
+                    try:
+                        publish_date = article.date_publish.isoformat()
+                    except:
+                        pass
         except Exception as e:
-            logger.error(f"Direct scrape error for {url}: {e}")
+            logger.warning(f"News-please failed for {url}: {e}")
+
+        # If news-please failed or returned empty content, try soup fallback
+        if not title or not content or len(content) < 100:
+            logger.info(f"News-please yielded insufficient content for {url}, trying soup fallback")
+            soup_data = await self._scrape_soup_fallback(url)
+            if soup_data:
+                title = soup_data.get("title") or title
+                content = soup_data.get("content") or content
+                source_domain = soup_data.get("source_domain") or source_domain
+                description = soup_data.get("description") or description
+
+        # Final check
+        if not title or not content or len(content) < 100:
+            logger.warning(f"Insufficient content from all methods: {url}")
             return None
+            
+        article_id = self._generate_article_id(url)
+        topics = self._extract_topics(title, content)
+        author_str = ", ".join(authors) if authors else None
+        
+        return ArticleContent(
+            article_id=article_id,
+            url=url,
+            title=title,
+            content=content,
+            author=author_str,
+            publish_date=publish_date,
+            source=source or source_domain or "",
+            category=category,
+            description=description,
+            image_url=image_url,
+            language=None,
+            topics=topics
+        )
 
     
     async def scrape_article(
