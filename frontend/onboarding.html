@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome | Live AI News</title>
+    <meta name="description" content="Personalize your news experience with a quick questionnaire">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/onboarding.css">
+</head>
+
+<body>
+    <div class="app">
+        <!-- Animated Background -->
+        <div class="bg-effects">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="gradient-orb orb-3"></div>
+        </div>
+
+        <!-- Onboarding Container -->
+        <div class="onboarding-container">
+            <!-- Progress Bar -->
+            <div class="progress-bar-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text" id="progress-text">Question 1 of 9</div>
+            </div>
+
+            <!-- Questions Container -->
+            <div class="questions-wrapper" id="questions-wrapper">
+
+                <!-- Q1: News Categories -->
+                <div class="question-card active" data-question="1">
+                    <div class="question-header">
+                        <span class="question-emoji">📰</span>
+                        <h2>What topics catch your eye?</h2>
+                        <p>Select all the news categories you're interested in</p>
+                    </div>
+                    <div class="options-grid multi-select" data-field="categories">
+                        <button class="option-pill" data-value="Technology">
+                            <span class="option-icon">💻</span>
+                            <span>Technology</span>
+                        </button>
+                        <button class="option-pill" data-value="Business">
+                            <span class="option-icon">📈</span>
+                            <span>Business</span>
+                        </button>
+                        <button class="option-pill" data-value="Politics">
+                            <span class="option-icon">🏛️</span>
+                            <span>Politics</span>
+                        </button>
+                        <button class="option-pill" data-value="Sports">
+                            <span class="option-icon">⚽</span>
+                            <span>Sports</span>
+                        </button>
+                        <button class="option-pill" data-value="Entertainment">
+                            <span class="option-icon">🎬</span>
+                            <span>Entertainment</span>
+                        </button>
+                        <button class="option-pill" data-value="Science">
+                            <span class="option-icon">🔬</span>
+                            <span>Science</span>
+                        </button>
+                        <button class="option-pill" data-value="Health">
+                            <span class="option-icon">🏥</span>
+                            <span>Health</span>
+                        </button>
+                        <button class="option-pill" data-value="World">
+                            <span class="option-icon">🌍</span>
+                            <span>World News</span>
+                        </button>
+                        <button class="option-pill" data-value="Lifestyle">
+                            <span class="option-icon">✨</span>
+                            <span>Lifestyle</span>
+                        </button>
+                        <button class="option-pill" data-value="Finance">
+                            <span class="option-icon">💰</span>
+                            <span>Finance</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Q2: Reading Depth -->
+                <div class="question-card" data-question="2">
+                    <div class="question-header">
+                        <span class="question-emoji">📖</span>
+                        <h2>How deep do you dive?</h2>
+                        <p>Your preferred reading style for news</p>
+                    </div>
+                    <div class="options-stack single-select" data-field="reading_depth">
+                        <button class="option-card" data-value="headlines">
+                            <div class="option-card-icon">⚡</div>
+                            <div class="option-card-content">
+                                <h4>Just Headlines</h4>
+                                <p>Quick glance at top stories</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="quick">
+                            <div class="option-card-icon">📝</div>
+                            <div class="option-card-content">
+                                <h4>Quick Reads</h4>
+                                <p>2-3 minute summaries</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="in_depth">
+                            <div class="option-card-icon">🔍</div>
+                            <div class="option-card-content">
+                                <h4>In-Depth Analysis</h4>
+                                <p>Long-form, detailed articles</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="mixed">
+                            <div class="option-card-icon">🎯</div>
+                            <div class="option-card-content">
+                                <h4>Mix of Everything</h4>
+                                <p>Variety based on topic</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Q5: Daily Time -->
+                <div class="question-card" data-question="3">
+                    <div class="question-header">
+                        <span class="question-emoji">⏰</span>
+                        <h2>Time for news each day?</h2>
+                        <p>How much time do you typically spend on news?</p>
+                    </div>
+                    <div class="options-stack single-select" data-field="daily_time">
+                        <button class="option-card" data-value="less_10">
+                            <div class="option-card-icon">🏃</div>
+                            <div class="option-card-content">
+                                <h4>Less than 10 minutes</h4>
+                                <p>Quick updates on the go</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="10_30">
+                            <div class="option-card-icon">☕</div>
+                            <div class="option-card-content">
+                                <h4>10-30 minutes</h4>
+                                <p>Morning coffee browsing</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="30_60">
+                            <div class="option-card-icon">📱</div>
+                            <div class="option-card-content">
+                                <h4>30-60 minutes</h4>
+                                <p>Dedicated reading time</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="more_60">
+                            <div class="option-card-icon">🧠</div>
+                            <div class="option-card-content">
+                                <h4>More than an hour</h4>
+                                <p>News enthusiast mode</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Q6: Content Formats -->
+                <div class="question-card" data-question="4">
+                    <div class="question-header">
+                        <span class="question-emoji">🎨</span>
+                        <h2>How do you like your news?</h2>
+                        <p>Select your preferred content formats</p>
+                    </div>
+                    <div class="options-grid multi-select" data-field="content_formats">
+                        <button class="option-pill large" data-value="text">
+                            <span class="option-icon">📝</span>
+                            <span>Text Articles</span>
+                        </button>
+                        <button class="option-pill large" data-value="video">
+                            <span class="option-icon">🎬</span>
+                            <span>Video Summaries</span>
+                        </button>
+                        <button class="option-pill large" data-value="audio">
+                            <span class="option-icon">🎧</span>
+                            <span>Audio / Podcasts</span>
+                        </button>
+                        <button class="option-pill large" data-value="infographics">
+                            <span class="option-icon">📊</span>
+                            <span>Infographics</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Q7: Primary Reason -->
+                <div class="question-card" data-question="5">
+                    <div class="question-header">
+                        <span class="question-emoji">🎯</span>
+                        <h2>Why do you stay informed?</h2>
+                        <p>Your primary reason for consuming news</p>
+                    </div>
+                    <div class="options-stack single-select" data-field="primary_reason">
+                        <button class="option-card" data-value="professional">
+                            <div class="option-card-icon">💼</div>
+                            <div class="option-card-content">
+                                <h4>Professional Needs</h4>
+                                <p>Work & industry updates</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="personal">
+                            <div class="option-card-icon">🌟</div>
+                            <div class="option-card-content">
+                                <h4>Personal Interest</h4>
+                                <p>Curiosity & staying aware</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="investment">
+                            <div class="option-card-icon">📈</div>
+                            <div class="option-card-content">
+                                <h4>Investment Decisions</h4>
+                                <p>Market & financial news</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="social">
+                            <div class="option-card-icon">💬</div>
+                            <div class="option-card-content">
+                                <h4>Social Conversations</h4>
+                                <p>Stay relevant in discussions</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="academic">
+                            <div class="option-card-icon">🎓</div>
+                            <div class="option-card-content">
+                                <h4>Academic / Research</h4>
+                                <p>Learning & research purposes</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Q8: Industry -->
+                <div class="question-card" data-question="6">
+                    <div class="question-header">
+                        <span class="question-emoji">🏢</span>
+                        <h2>What's your industry?</h2>
+                        <p>We'll tailor news to your professional world</p>
+                    </div>
+                    <div class="options-grid multi-select single-select-grid" data-field="industry">
+                        <button class="option-pill" data-value="Technology">
+                            <span class="option-icon">💻</span>
+                            <span>Technology</span>
+                        </button>
+                        <button class="option-pill" data-value="Finance">
+                            <span class="option-icon">🏦</span>
+                            <span>Finance</span>
+                        </button>
+                        <button class="option-pill" data-value="Healthcare">
+                            <span class="option-icon">🏥</span>
+                            <span>Healthcare</span>
+                        </button>
+                        <button class="option-pill" data-value="Education">
+                            <span class="option-icon">🎓</span>
+                            <span>Education</span>
+                        </button>
+                        <button class="option-pill" data-value="Media">
+                            <span class="option-icon">📺</span>
+                            <span>Media</span>
+                        </button>
+                        <button class="option-pill" data-value="Retail">
+                            <span class="option-icon">🛍️</span>
+                            <span>Retail</span>
+                        </button>
+                        <button class="option-pill" data-value="Manufacturing">
+                            <span class="option-icon">🏭</span>
+                            <span>Manufacturing</span>
+                        </button>
+                        <button class="option-pill" data-value="Government">
+                            <span class="option-icon">🏛️</span>
+                            <span>Government</span>
+                        </button>
+                        <button class="option-pill" data-value="Startup">
+                            <span class="option-icon">🚀</span>
+                            <span>Startup</span>
+                        </button>
+                        <button class="option-pill" data-value="Other">
+                            <span class="option-icon">🌐</span>
+                            <span>Other</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Q9: Regions -->
+                <div class="question-card" data-question="7">
+                    <div class="question-header">
+                        <span class="question-emoji">🌍</span>
+                        <h2>Which regions interest you?</h2>
+                        <p>Select all regions you want news from</p>
+                    </div>
+                    <div class="options-grid multi-select" data-field="regions">
+                        <button class="option-pill large" data-value="Local">
+                            <span class="option-icon">📍</span>
+                            <span>Local News</span>
+                        </button>
+                        <button class="option-pill large" data-value="National">
+                            <span class="option-icon">🏠</span>
+                            <span>National</span>
+                        </button>
+                        <button class="option-pill large" data-value="International">
+                            <span class="option-icon">🌐</span>
+                            <span>International</span>
+                        </button>
+                        <button class="option-pill large" data-value="Asia">
+                            <span class="option-icon">🌏</span>
+                            <span>Asia</span>
+                        </button>
+                        <button class="option-pill large" data-value="Europe">
+                            <span class="option-icon">🇪🇺</span>
+                            <span>Europe</span>
+                        </button>
+                        <button class="option-pill large" data-value="Americas">
+                            <span class="option-icon">🌎</span>
+                            <span>Americas</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Q12: AI Summary Preference -->
+                <div class="question-card" data-question="8">
+                    <div class="question-header">
+                        <span class="question-emoji">🤖</span>
+                        <h2>How do you feel about AI summaries?</h2>
+                        <p>Your preference for AI-generated content</p>
+                    </div>
+                    <div class="options-stack single-select" data-field="ai_summary_preference">
+                        <button class="option-card" data-value="love_it">
+                            <div class="option-card-icon">❤️</div>
+                            <div class="option-card-content">
+                                <h4>Love them!</h4>
+                                <p>They save me so much time</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="useful_verify">
+                            <div class="option-card-icon">🔍</div>
+                            <div class="option-card-content">
+                                <h4>Useful but I verify</h4>
+                                <p>I check original sources too</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="prefer_human">
+                            <div class="option-card-icon">👤</div>
+                            <div class="option-card-content">
+                                <h4>Prefer human-written</h4>
+                                <p>Give me the real articles</p>
+                            </div>
+                        </button>
+                        <button class="option-card" data-value="open_to_try">
+                            <div class="option-card-icon">🧪</div>
+                            <div class="option-card-content">
+                                <h4>Open to trying</h4>
+                                <p>Let's see how it goes!</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Q15: Importance Ratings -->
+                <div class="question-card" data-question="9">
+                    <div class="question-header">
+                        <span class="question-emoji">⭐</span>
+                        <h2>What matters most to you?</h2>
+                        <p>Rate the importance of each quality (1-5)</p>
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-item" data-field="importance_timely">
+                            <div class="slider-header">
+                                <span class="slider-label">⚡ Timeliness</span>
+                                <span class="slider-value" id="timely-value">3</span>
+                            </div>
+                            <p class="slider-desc">Breaking news & real-time updates</p>
+                            <input type="range" min="1" max="5" value="3" class="slider" id="slider-timely">
+                            <div class="slider-labels">
+                                <span>Not important</span>
+                                <span>Very important</span>
+                            </div>
+                        </div>
+                        <div class="slider-item" data-field="importance_accurate">
+                            <div class="slider-header">
+                                <span class="slider-label">✅ Accuracy</span>
+                                <span class="slider-value" id="accurate-value">3</span>
+                            </div>
+                            <p class="slider-desc">Fact-checked & verified content</p>
+                            <input type="range" min="1" max="5" value="3" class="slider" id="slider-accurate">
+                            <div class="slider-labels">
+                                <span>Not important</span>
+                                <span>Very important</span>
+                            </div>
+                        </div>
+                        <div class="slider-item" data-field="importance_engaging">
+                            <div class="slider-header">
+                                <span class="slider-label">✨ Engagement</span>
+                                <span class="slider-value" id="engaging-value">3</span>
+                            </div>
+                            <p class="slider-desc">Well-written & engaging stories</p>
+                            <input type="range" min="1" max="5" value="3" class="slider" id="slider-engaging">
+                            <div class="slider-labels">
+                                <span>Not important</span>
+                                <span>Very important</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Navigation -->
+            <div class="nav-buttons">
+                <button class="nav-btn-back" id="btn-back" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                    <span>Back</span>
+                </button>
+                <button class="nav-btn-next" id="btn-next">
+                    <span>Next</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18l6-6-6-6" />
+                    </svg>
+                </button>
+                <button class="nav-btn-submit hidden" id="btn-submit">
+                    <span>Let's Go!</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Success Screen -->
+        <div class="success-screen hidden" id="success-screen">
+            <div class="success-content">
+                <div class="success-icon">🎉</div>
+                <h1>You're all set!</h1>
+                <p>We've personalized your news experience based on your preferences.</p>
+                <button class="btn-primary btn-large" id="btn-start">
+                    Start Exploring
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/onboarding.js"></script>
+</body>
+
+</html>

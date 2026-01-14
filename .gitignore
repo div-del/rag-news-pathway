@@ -1,0 +1,25 @@
+# Environment files
+.env
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Cache
+cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Node
+node_modules/
+package-lock.json
+
+# Database
+*.db

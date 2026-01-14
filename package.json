@@ -1,0 +1,27 @@
+{
+  "name": "news-ai",
+  "version": "1.0.0",
+  "description": "Live AI News Platform - Real-time news analysis with adaptive RAG",
+  "scripts": {
+    "server": "./venv/bin/python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000",
+    "server:prod": "cd api && python -m uvicorn main:app --host 0.0.0.0 --port 8000",
+    "onboarding": "cd frontend/onboarding-app && npm run dev",
+    "install:backend": "pip install -r requirements.txt",
+    "install:frontend": "cd frontend/onboarding-app && npm install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "dev": "concurrently \"npm run server\" \"npm run onboarding\"",
+    "start": "npm run server"
+  },
+  "keywords": [
+    "news",
+    "ai",
+    "rag",
+    "fastapi",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

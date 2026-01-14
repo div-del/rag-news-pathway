@@ -1,0 +1,35 @@
+# Pathway Framework
+pathway>=0.28.0
+
+# News Scraping
+news-please>=1.5.35
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# API Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+psycopg2-binary>=2.9.9
+asyncpg>=0.29.0
+
+# LLM Integration
+openai>=1.10.0
+
+# Utilities
+python-dotenv>=1.0.0
+typing-extensions>=4.5.0
+aiofiles>=23.2.0
+httpx>=0.26.0
+
+# YouTube Analysis
+yt-dlp>=2024.1.0
+openai-whisper>=20231117
+pytubefix>=2.0.0
