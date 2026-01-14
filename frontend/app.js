@@ -45,7 +45,10 @@ function initializeEventListeners() {
 
     // Search
     document.getElementById('search-input').addEventListener('input', debounce(filterArticles, 300));
-    document.getElementById('category-filter').addEventListener('change', filterArticles);
+    document.getElementById('category-filter').addEventListener('change', () => {
+        const category = document.getElementById('category-filter').value;
+        loadNewsFeed(category);
+    });
 
     // Chat
     document.getElementById('send-chat-btn').addEventListener('click', sendChatMessage);
@@ -113,12 +116,24 @@ async function loadStats() {
 
 // ============ News Feed ============
 
-async function loadNewsFeed() {
+async function loadNewsFeed(category = null) {
     const feedContainer = document.getElementById('news-feed');
     feedContainer.innerHTML = '<div class="loading">Loading articles</div>';
 
+    // Construct URL with optional category
+    // Default limit 20 for mixed feed, 10 for specific category
+    let limit = 20;
+    if (category) {
+        limit = 10;
+    }
+
+    let url = `/news/feed?limit=${limit}`;
+    if (category) {
+        url += `&category=${encodeURIComponent(category)}`;
+    }
+
     try {
-        const data = await fetchAPI('/news/feed?limit=30');
+        const data = await fetchAPI(url);
         articles = data.articles || [];
 
         renderArticles(articles);
@@ -184,6 +199,19 @@ function filterArticles() {
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
     const category = document.getElementById('category-filter').value;
 
+    // Allow local search filtering on top of server-side category
+    // But reload feed if category changes
+    if (articles.length > 0 && articles[0].category !== category && category !== "") {
+        loadNewsFeed(category);
+        return;
+    } else if (category === "" && articles.length > 0 && articles.some(a => a.category !== articles[0].category)) {
+        // If "All" selected but we currently have single-category view, reload all
+        // This check is imperfect but simple: just reload if switching to "All" to be safe
+        loadNewsFeed();
+        return;
+    }
+
+    // Client-side filtering for search term
     let filtered = articles;
 
     if (searchTerm) {
@@ -193,12 +221,18 @@ function filterArticles() {
         );
     }
 
+    // Also filter by category locally just in case we have mixed set
     if (category) {
         filtered = filtered.filter(a => a.category === category);
     }
 
     renderArticles(filtered);
 }
+
+// Ensure filterArticles handles the category change event correctly
+// We need to modify the event listener logic slightly if we want it to trigger a reload
+// The existing event listener calls filterArticles, so we'll handle the reload logic there
+// or better, update the event listener to call loadNewsFeed directly for category changes.
 
 function updateStats() {
     document.getElementById('article-count').textContent = `${articles.length} articles`;
@@ -210,17 +244,28 @@ async function fetchNews() {
     const btn = document.getElementById('fetch-news-btn');
     const originalContent = btn.innerHTML;
 
+    // Get currently selected category
+    const categoryFilter = document.getElementById('category-filter');
+    const selectedCategory = categoryFilter.value; // Empty string if "All", or specific category
+
+    const displayCategory = selectedCategory || 'All Categories';
+
     btn.innerHTML = `
         <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
         </svg>
-        <span>Fetching...</span>
+        <span>Fetching ${escapeHtml(displayCategory)}...</span>
     `;
     btn.disabled = true;
 
     try {
-        // Fetch from Technology category for speed
-        const result = await fetchAPI('/news/fetch?category=Technology&num_results=5', { method: 'POST' });
+        // Build URL
+        let url = '/news/fetch?num_results=5';
+        if (selectedCategory) {
+            url += `&category=${encodeURIComponent(selectedCategory)}`;
+        }
+
+        const result = await fetchAPI(url, { method: 'POST' });
 
         if (result.count > 0) {
             showNotification(`✅ Fetched ${result.count} new articles`);
@@ -228,7 +273,7 @@ async function fetchNews() {
             showNotification('No new articles found');
         }
 
-        await loadNewsFeed();
+        await loadNewsFeed(selectedCategory); // Reload feed with current filter
         await loadStats();
 
     } catch (error) {
@@ -391,16 +436,77 @@ async function sendArticleChatMessage() {
 
 // ============ Comparison Functions ============
 
+// Update all compare dropdowns
 function updateCompareDropdowns() {
-    const select1 = document.getElementById('compare-select-1');
-    const select2 = document.getElementById('compare-select-2');
+    updateCompareDropdown(1);
+    updateCompareDropdown(2);
+}
 
-    const options = articles.map(a =>
+// Update specific compare dropdown based on its category filter
+function updateCompareDropdown(slotId) {
+    const catSelect = document.getElementById(`compare-cat-${slotId}`);
+    const articleSelect = document.getElementById(`compare-select-${slotId}`);
+
+    if (!catSelect || !articleSelect) return;
+
+    const category = catSelect.value;
+    const currentVal = articleSelect.value;
+
+    // Filter articles
+    let filteredArticles = articles;
+    if (category) {
+        filteredArticles = articles.filter(a => a.category === category);
+    }
+
+    const options = filteredArticles.map(a =>
         `<option value="${a.article_id}">${escapeHtml(truncate(a.title, 60))}</option>`
     ).join('');
 
-    select1.innerHTML = `<option value="">Select an article...</option>${options}`;
-    select2.innerHTML = `<option value="">Select an article...</option>${options}`;
+    articleSelect.innerHTML = `<option value="">Select an article...</option>${options}`;
+
+    // Restore selection if valid
+    if (currentVal && filteredArticles.some(a => a.article_id === currentVal)) {
+        articleSelect.value = currentVal;
+    }
+}
+
+async function fetchCompareNews(slotId) {
+    const btn = document.getElementById(`compare-fetch-${slotId}`);
+    const catSelect = document.getElementById(`compare-cat-${slotId}`);
+    const category = catSelect.value;
+    const displayCategory = category || 'All Categories';
+
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '...';
+    btn.disabled = true;
+
+    try {
+        let url = '/news/fetch?num_results=5';
+        if (category) {
+            url += `&category=${encodeURIComponent(category)}`;
+        }
+
+        const result = await fetchAPI(url, { method: 'POST' });
+
+        if (result.count > 0) {
+            showNotification(`Fetched ${result.count} new articles`);
+        } else {
+            showNotification('No new articles options found');
+        }
+
+        // Reload global articles (resets main feed, but ensures we have data)
+        // We pass the current main filter to loadNewsFeed so we don't disrupt the main feed too much if user goes back
+        const mainCategory = document.getElementById('category-filter').value;
+        await loadNewsFeed(mainCategory);
+
+        // The loadNewsFeed calls updateCompareDropdowns, so the dropdowns will refresh automatically
+
+    } catch (error) {
+        showNotification('Error fetching news', 'error');
+    }
+
+    btn.innerHTML = originalContent;
+    btn.disabled = false;
 }
 
 function updateComparePreview() {

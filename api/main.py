@@ -186,11 +186,13 @@ async def get_stats():
 async def get_news_feed(
     user_id: Optional[str] = None,
     limit: int = Query(20, ge=1, le=100),
-    exclude_viewed: bool = True
+    exclude_viewed: bool = True,
+    category: Optional[str] = None
 ):
     """
     Get personalized news feed.
     If user_id provided, returns personalized recommendations.
+    Can be filtered by category.
     """
     rec_engine = get_recommendation_engine()
     
@@ -198,7 +200,8 @@ async def get_news_feed(
         recommendations = rec_engine.get_personalized_feed(
             user_id=user_id,
             limit=limit,
-            exclude_viewed=exclude_viewed
+            exclude_viewed=exclude_viewed,
+            category=category
         )
         
         return {
@@ -218,8 +221,24 @@ async def get_news_feed(
             "count": len(recommendations)
         }
     else:
-        # Return all articles without personalization
-        articles = list(rec_engine._articles.values())[:limit]
+        # Return all articles, optionally filtered by category
+        
+        if category and category != "":
+            # Specific category: Filter existing articles
+            # Use loose matching to handle "Finance" vs "Finance News" and case differences
+            all_articles = list(rec_engine._articles.values())
+            target_cat = category.lower()
+            
+            filtered_articles = [
+                a for a in all_articles 
+                if target_cat in a.get("category", "").lower()
+            ]
+            articles = filtered_articles[:limit]
+        else:
+            # All categories: Use mixed feed strategy
+            # Note: get_mixed_feed returns dicts, not objects, which matches what we need here
+            articles = rec_engine.get_mixed_feed(limit=limit)
+
         return {
             "personalized": False,
             "articles": articles,
@@ -536,10 +555,18 @@ async def fetch_news(category: Optional[str] = None, num_results: int = 10):
         return {"message": "No new articles found", "count": 0}
     
     # Scrape articles
-    urls_to_scrape = [
-        {"url": r.url, "category": r.category, "source": r.source}
-        for r in results
-    ]
+    urls_to_scrape = []
+    
+    for r in results:
+        # If a specific category was requested, enforce it
+        # Otherwise use the category from the result (which is likely "search_query")
+        clean_category = category if category else r.category
+        
+        urls_to_scrape.append({
+            "url": r.url, 
+            "category": clean_category, 
+            "source": r.source
+        })
     
     articles = await article_scraper.scrape_articles(urls_to_scrape)
     
