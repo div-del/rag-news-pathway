@@ -747,7 +747,8 @@ async def fetch_news(category: Optional[str] = None, num_results: int = 10):
         urls_to_scrape.append({
             "url": r.url, 
             "category": clean_category, 
-            "source": r.source
+            "source": r.source,
+            "snippet": r.snippet
         })
     
     articles = await article_scraper.scrape_articles(urls_to_scrape)

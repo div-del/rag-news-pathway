@@ -294,7 +294,8 @@ class ArticleScraper:
         self,
         url: str,
         category: str = "",
-        source: str = ""
+        source: str = "",
+        snippet: str = ""
     ) -> Optional[ArticleContent]:
         """
         Asynchronously scrape a single article.
@@ -303,6 +304,7 @@ class ArticleScraper:
             url: Article URL to scrape
             category: News category (for metadata)
             source: Source name (for metadata)
+            snippet: Fallback content if scraping fails
         
         Returns:
             ArticleContent if successful, None otherwise
@@ -318,6 +320,22 @@ class ArticleScraper:
             result = await self._scrape_via_service(url, category, source)
         else:
             result = await self._scrape_direct(url, category, source)
+            
+        # If both failed but we have a snippet, use it as fallback
+        if not result and snippet:
+            logger.info(f"Scraping failed for {url}, using snippet fallback")
+            article_id = self._generate_article_id(url)
+            result = ArticleContent(
+                article_id=article_id,
+                url=url,
+                title="News Update", # Fallback title
+                content=snippet,
+                source=source,
+                category=category,
+                description=snippet,
+                scraped_at=datetime.utcnow().isoformat(),
+                topics=self._extract_topics("News Update", snippet)
+            )
         
         # Cache successful results
         if result:
@@ -350,7 +368,8 @@ class ArticleScraper:
                 self.scrape_article(
                     item.get("url", ""),
                     item.get("category", ""),
-                    item.get("source", "")
+                    item.get("source", ""),
+                    item.get("snippet", "")
                 )
                 for item in batch
             ]
