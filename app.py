@@ -144,6 +144,23 @@ class NewsAIPlatform:
         
         await server.serve()
     
+    async def start_pathway_async(self):
+        """Start Pathway server asynchronously (non-blocking)"""
+        # Run in executor to avoid blocking the event loop
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._start_pathway_background)
+    
+    def _start_pathway_background(self):
+        """Background Pathway startup (runs in thread pool)"""
+        try:
+            pathway_started = self.start_pathway_server()
+            if pathway_started:
+                logger.info("Real-time RAG powered by Pathway is ACTIVE")
+            else:
+                logger.info("Using fallback local RAG engine")
+        except Exception as e:
+            logger.warning(f"Pathway startup failed: {e}, using local RAG")
+    
     async def run(self, enable_news_streaming: bool = True, enable_pathway: bool = True):
         """
         Run the complete platform.
@@ -162,23 +179,26 @@ class NewsAIPlatform:
         logger.info(f"Pathway Enabled: {Config.USE_PATHWAY and enable_pathway}")
         logger.info("=" * 60)
         
-        # Start Pathway server first (if enabled)
-        pathway_started = False
-        if enable_pathway and Config.USE_PATHWAY:
-            pathway_started = self.start_pathway_server()
-            if pathway_started:
-                logger.info("Real-time RAG powered by Pathway is ACTIVE")
-            else:
-                logger.info("Using fallback local RAG engine")
-        
         tasks = []
         
-        # Start API server
+        # IMPORTANT: Start API server FIRST to bind port immediately
+        # This ensures Render/hosting platforms detect the port quickly
+        logger.info(f"Starting API server on {Config.HOST}:{Config.PORT}...")
         api_task = asyncio.create_task(self.start_api_server())
         tasks.append(api_task)
         
-        # Start news streaming if enabled
+        # Give uvicorn a moment to bind the port
+        await asyncio.sleep(1)
+        
+        # Start Pathway server in background (non-blocking)
+        # This loads embeddings which can take time, but won't block the API
+        if enable_pathway and Config.USE_PATHWAY:
+            logger.info("Initializing Pathway RAG in background...")
+            asyncio.create_task(self.start_pathway_async())
+        
+        # Start news streaming if enabled (after a delay to let things initialize)
         if enable_news_streaming:
+            await asyncio.sleep(2)  # Let API and Pathway start first
             self._news_task = asyncio.create_task(self.start_news_streaming())
             tasks.append(self._news_task)
         
