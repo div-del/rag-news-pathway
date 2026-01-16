@@ -1,19 +1,49 @@
 """
 RAG Engine with Context Expansion.
 Handles queries with global, article-specific, and comparison contexts.
+Now with vector similarity search using local embeddings.
+
+Supports two modes:
+1. Local RAG: In-memory embeddings with sentence-transformers
+2. Pathway RAG: Real-time streaming with Pathway DocumentStore
 """
 
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass, asdict
+from typing import Dict, Any, Optional, List, Tuple
+from dataclasses import dataclass, asdict, field
+import numpy as np
 from openai import AsyncOpenAI
+
+try:
+    from sentence_transformers import SentenceTransformer
+    EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    EMBEDDINGS_AVAILABLE = False
+    SentenceTransformer = None
 
 from config import Config
 
 logger = logging.getLogger(__name__)
+
+# Pathway server reference (set by app.py on startup)
+_pathway_server = None
+
+
+def set_pathway_server(server):
+    """Set the Pathway server reference for RAG queries"""
+    global _pathway_server
+    _pathway_server = server
+    logger.info("Pathway server connected to RAG engine")
+
+
+def get_pathway_server():
+    """Get the Pathway server reference"""
+    global _pathway_server
+    return _pathway_server
 
 
 @dataclass 
@@ -22,8 +52,12 @@ class RAGContext:
     documents: List[Dict[str, Any]]
     query: str
     context_type: str  # "global", "article", "comparison"
+    relevance_scores: List[float] = field(default_factory=list)
     metadata_filter: Optional[str] = None
     total_tokens: int = 0
+    search_method: str = "hybrid"  # "vector", "keyword", "hybrid", or "pathway"
+    search_latency_ms: float = 0.0  # Time taken for search
+    pathway_used: bool = False  # Whether Pathway was used
 
 
 @dataclass
@@ -37,10 +71,17 @@ class RAGResponse:
     
     def to_dict(self) -> Dict[str, Any]:
         result = asdict(self)
-        result["context"]["documents"] = [
-            {"article_id": d.get("article_id"), "title": d.get("title"), "snippet": d.get("text", "")[:200]}
-            for d in self.context.documents
-        ]
+        docs_with_scores = []
+        for i, d in enumerate(self.context.documents):
+            score = self.context.relevance_scores[i] if i < len(self.context.relevance_scores) else 0.0
+            docs_with_scores.append({
+                "article_id": d.get("article_id"),
+                "title": d.get("title"),
+                "snippet": d.get("content", d.get("text", ""))[:200],
+                "source": d.get("source", "Unknown"),
+                "score": round(score, 3)
+            })
+        result["context"]["documents"] = docs_with_scores
         return result
 
 
@@ -56,7 +97,8 @@ class RAGEngine:
         self,
         api_key: str = None,
         base_url: str = None,
-        model: str = None
+        model: str = None,
+        embedding_model: str = "all-MiniLM-L6-v2"
     ):
         self.api_key = api_key or Config.OPENROUTER_API_KEY
         self.base_url = base_url or Config.LLM_BASE_URL
@@ -71,10 +113,30 @@ class RAGEngine:
         # In-memory document store (backed by SQLite)
         self._documents: Dict[str, Dict[str, Any]] = {}
         
+        # Vector embeddings store
+        self._embeddings: Dict[str, np.ndarray] = {}
+        
+        # Initialize local embedding model (runs on CPU, no API cost)
+        self._embedder = None
+        if EMBEDDINGS_AVAILABLE:
+            try:
+                logger.info(f"Loading embedding model: {embedding_model}...")
+                self._embedder = SentenceTransformer(embedding_model)
+                logger.info(f"Embedding model loaded successfully")
+            except Exception as e:
+                logger.warning(f"Could not load embedding model: {e}")
+                self._embedder = None
+        else:
+            logger.warning("sentence-transformers not installed. Using keyword search only.")
+        
         # Load existing articles from SQLite
         self._load_from_store()
         
-        logger.info(f"RAG Engine initialized with model: {self.model}, loaded {len(self._documents)} articles")
+        # Generate embeddings for loaded articles
+        if self._embedder and self._documents:
+            self._generate_embeddings_batch(list(self._documents.values()))
+        
+        logger.info(f"RAG Engine initialized with model: {self.model}, loaded {len(self._documents)} articles, {len(self._embeddings)} embeddings")
     
     def _load_from_store(self):
         """Load all articles from SQLite into memory"""
@@ -91,11 +153,16 @@ class RAGEngine:
             logger.warning(f"Could not load articles from store: {e}")
     
     def add_document(self, document: Dict[str, Any]) -> bool:
-        """Add a document to the in-memory store and persist to SQLite"""
+        """Add a document to the in-memory store, generate embedding, and persist to SQLite"""
         article_id = document.get("article_id")
         if article_id:
             self._documents[article_id] = document
-            logger.debug(f"Added document: {article_id}")
+            
+            # Generate embedding for this document
+            if self._embedder:
+                self._generate_embedding(document)
+            
+            logger.debug(f"Added document with embedding: {article_id}")
             
             # Persist to SQLite
             try:
@@ -106,6 +173,208 @@ class RAGEngine:
                 logger.warning(f"Could not persist to store: {e}")
                 return True  # Still added to memory
         return False
+    
+    def _generate_embedding(self, document: Dict[str, Any]) -> None:
+        """Generate embedding for a single document"""
+        if not self._embedder:
+            return
+        
+        article_id = document.get("article_id")
+        if not article_id:
+            return
+        
+        # Create text for embedding (title + content + topics)
+        text = self._get_document_text(document)
+        
+        try:
+            embedding = self._embedder.encode(text, convert_to_numpy=True)
+            self._embeddings[article_id] = embedding
+        except Exception as e:
+            logger.warning(f"Could not generate embedding for {article_id}: {e}")
+    
+    def _generate_embeddings_batch(self, documents: List[Dict[str, Any]]) -> None:
+        """Generate embeddings for multiple documents efficiently"""
+        if not self._embedder or not documents:
+            return
+        
+        texts = []
+        article_ids = []
+        
+        for doc in documents:
+            article_id = doc.get("article_id")
+            if article_id and article_id not in self._embeddings:
+                texts.append(self._get_document_text(doc))
+                article_ids.append(article_id)
+        
+        if not texts:
+            return
+        
+        try:
+            logger.info(f"Generating embeddings for {len(texts)} documents...")
+            embeddings = self._embedder.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+            
+            for article_id, embedding in zip(article_ids, embeddings):
+                self._embeddings[article_id] = embedding
+            
+            logger.info(f"Generated {len(embeddings)} embeddings")
+        except Exception as e:
+            logger.warning(f"Batch embedding generation failed: {e}")
+    
+    def _get_document_text(self, document: Dict[str, Any]) -> str:
+        """Get searchable text from a document"""
+        title = document.get("title", "")
+        content = document.get("content", "")[:2000]  # Limit content length for embedding
+        topics = document.get("topics", [])
+        if isinstance(topics, str):
+            try:
+                topics = json.loads(topics)
+            except:
+                topics = []
+        topics_str = " ".join(topics) if topics else ""
+        
+        return f"{title}\n{content}\n{topics_str}"
+    
+    def _vector_search(
+        self,
+        query: str,
+        top_k: int = 5,
+        category_filter: Optional[str] = None,
+        article_ids: Optional[List[str]] = None
+    ) -> List[Tuple[Dict[str, Any], float]]:
+        """
+        Vector similarity search using cosine similarity.
+        Returns list of (document, score) tuples.
+        """
+        if not self._embedder or not self._embeddings:
+            return []
+        
+        # Generate query embedding
+        query_embedding = self._embedder.encode(query, convert_to_numpy=True)
+        
+        # Calculate cosine similarity with all document embeddings
+        scored_docs = []
+        
+        for article_id, doc_embedding in self._embeddings.items():
+            # Apply article ID filter if specified
+            if article_ids and article_id not in article_ids:
+                continue
+            
+            doc = self._documents.get(article_id)
+            if not doc:
+                continue
+            
+            # Apply category filter
+            if category_filter:
+                doc_category = doc.get("category", "").lower()
+                if category_filter.lower() not in doc_category:
+                    continue
+            
+            # Cosine similarity
+            similarity = np.dot(query_embedding, doc_embedding) / (
+                np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding) + 1e-8
+            )
+            
+            scored_docs.append((doc, float(similarity)))
+        
+        # Sort by similarity score (descending)
+        scored_docs.sort(key=lambda x: x[1], reverse=True)
+        
+        return scored_docs[:top_k]
+    
+    def _hybrid_search(
+        self,
+        query: str,
+        top_k: int = 5,
+        category_filter: Optional[str] = None,
+        article_ids: Optional[List[str]] = None,
+        vector_weight: float = 0.7
+    ) -> List[Tuple[Dict[str, Any], float]]:
+        """
+        Hybrid search combining vector and keyword search.
+        Returns list of (document, score) tuples.
+        """
+        # Get results from both methods
+        vector_results = self._vector_search(query, top_k * 2, category_filter, article_ids)
+        keyword_results = self._simple_search(query, top_k * 2, category_filter, article_ids)
+        
+        # Normalize keyword scores to 0-1 range
+        max_keyword_score = max((s for _, s in keyword_results), default=1) if keyword_results else 1
+        
+        # Combine scores using weighted fusion
+        combined_scores: Dict[str, Tuple[Dict[str, Any], float]] = {}
+        
+        for doc, score in vector_results:
+            article_id = doc.get("article_id")
+            if article_id:
+                combined_scores[article_id] = (doc, score * vector_weight)
+        
+        for doc, score in keyword_results:
+            article_id = doc.get("article_id")
+            if article_id:
+                normalized_score = (score / max_keyword_score) if max_keyword_score > 0 else 0
+                if article_id in combined_scores:
+                    existing_doc, existing_score = combined_scores[article_id]
+                    combined_scores[article_id] = (existing_doc, existing_score + normalized_score * (1 - vector_weight))
+                else:
+                    combined_scores[article_id] = (doc, normalized_score * (1 - vector_weight))
+        
+        # Sort by combined score
+        results = list(combined_scores.values())
+        results.sort(key=lambda x: x[1], reverse=True)
+        
+        return results[:top_k]
+    
+    def _pathway_search(
+        self,
+        query: str,
+        top_k: int = 5,
+        category_filter: Optional[str] = None
+    ) -> Tuple[List[Tuple[Dict[str, Any], float]], float]:
+        """
+        Search using Pathway's DocumentStore.
+        Returns (results, latency_ms).
+        
+        This leverages Pathway's real-time incremental indexing.
+        """
+        pathway_server = get_pathway_server()
+        if not pathway_server or not pathway_server.is_running:
+            return [], 0.0
+        
+        start_time = time.time()
+        
+        try:
+            # Query Pathway server
+            results = pathway_server.query(
+                query=query,
+                top_k=top_k,
+                metadata_filter=category_filter
+            )
+            
+            latency_ms = (time.time() - start_time) * 1000
+            
+            # Convert to (document, score) tuples
+            scored_docs = []
+            for item in results:
+                if isinstance(item, dict):
+                    score = item.get("score", 0.5)
+                    doc = {
+                        "article_id": item.get("article_id", ""),
+                        "title": item.get("title", ""),
+                        "content": item.get("text", item.get("content", "")),
+                        "source": item.get("source", "Unknown"),
+                        "category": item.get("category", ""),
+                        "topics": item.get("topics", []),
+                        "url": item.get("url", ""),
+                        "publish_date": item.get("publish_date", "")
+                    }
+                    scored_docs.append((doc, score))
+            
+            logger.debug(f"Pathway search returned {len(scored_docs)} results in {latency_ms:.1f}ms")
+            return scored_docs, latency_ms
+            
+        except Exception as e:
+            logger.error(f"Pathway search error: {e}")
+            return [], 0.0
 
     
     def _simple_search(
@@ -114,10 +383,10 @@ class RAGEngine:
         top_k: int = 5,
         category_filter: Optional[str] = None,
         article_ids: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Tuple[Dict[str, Any], float]]:
         """
-        Simple keyword-based search (placeholder for vector search).
-        Will be replaced with Pathway DocumentStore query.
+        Keyword-based search for fallback and hybrid search.
+        Returns list of (document, score) tuples.
         """
         query_lower = query.lower()
         query_terms = query_lower.split()
@@ -130,24 +399,29 @@ class RAGEngine:
                 continue
             
             # Apply category filter
-            if category_filter and doc.get("category", "").lower() != category_filter.lower():
-                continue
+            if category_filter:
+                doc_category = doc.get("category", "").lower()
+                if category_filter.lower() not in doc_category:
+                    continue
             
             # Simple term matching score
             text = f"{doc.get('title', '')} {doc.get('content', '')}".lower()
             topics = doc.get("topics", [])
             if isinstance(topics, str):
-                topics = json.loads(topics) if topics else []
+                try:
+                    topics = json.loads(topics) if topics else []
+                except:
+                    topics = []
             
             score = sum(1 for term in query_terms if term in text)
             score += sum(2 for term in query_terms if any(term in t.lower() for t in topics))
             
             if score > 0:
-                scored_docs.append((score, doc))
+                scored_docs.append((doc, float(score)))
         
         # Sort by score and return top_k
-        scored_docs.sort(key=lambda x: x[0], reverse=True)
-        return [doc for _, doc in scored_docs[:top_k]]
+        scored_docs.sort(key=lambda x: x[1], reverse=True)
+        return scored_docs[:top_k]
     
     def _build_context_text(self, documents: List[Dict[str, Any]]) -> str:
         """Build context text from retrieved documents"""
@@ -173,33 +447,79 @@ Source: {source} | Category: {category}
         self,
         query: str,
         top_k: int = None,
-        category: Optional[str] = None
+        category: Optional[str] = None,
+        use_hybrid: bool = True,
+        use_pathway: bool = True
     ) -> RAGResponse:
         """
         Query with global context (all articles).
+        Uses Pathway when available, falls back to hybrid search.
         
         Args:
             query: User's question
             top_k: Number of documents to retrieve
             category: Optional category filter
+            use_hybrid: Whether to use hybrid search (default: True)
+            use_pathway: Whether to try Pathway first (default: True)
         
         Returns:
             RAGResponse with answer and context
         """
         top_k = top_k or Config.RAG_TOP_K
         
-        # Retrieve relevant documents
-        documents = self._simple_search(
-            query=query,
-            top_k=top_k,
-            category_filter=category
-        )
+        search_results = []
+        search_method = "keyword"
+        search_latency_ms = 0.0
+        pathway_used = False
+        
+        # Try Pathway first if enabled and available
+        if use_pathway and Config.USE_PATHWAY:
+            pathway_results, latency = self._pathway_search(
+                query=query,
+                top_k=top_k,
+                category_filter=category
+            )
+            if pathway_results:
+                search_results = pathway_results
+                search_method = "pathway"
+                search_latency_ms = latency
+                pathway_used = True
+                logger.info(f"Pathway search returned {len(search_results)} results in {latency:.1f}ms")
+        
+        # Fall back to local search if Pathway didn't return results
+        if not search_results:
+            start_time = time.time()
+            
+            if use_hybrid and self._embedder and self._embeddings:
+                search_results = self._hybrid_search(
+                    query=query,
+                    top_k=top_k,
+                    category_filter=category
+                )
+                search_method = "hybrid"
+            else:
+                search_results = self._simple_search(
+                    query=query,
+                    top_k=top_k,
+                    category_filter=category
+                )
+                search_method = "keyword"
+            
+            search_latency_ms = (time.time() - start_time) * 1000
+        
+        # Extract documents and scores
+        documents = [doc for doc, _ in search_results]
+        relevance_scores = [score for _, score in search_results]
         
         context = RAGContext(
             documents=documents,
             query=query,
             context_type="global",
-            metadata_filter=f"category={category}" if category else None
+            relevance_scores=relevance_scores,
+            metadata_filter=f"category={category}" if category else None,
+            search_method=search_method,
+            search_latency_ms=search_latency_ms,
+            pathway_used=pathway_used
         )
         
         if not documents:
@@ -445,11 +765,23 @@ Provide a detailed comparison based on the articles above."""
             return f"Sorry, I encountered an error generating a response: {str(e)}"
     
     def get_stats(self) -> Dict[str, Any]:
-        """Get engine statistics"""
+        """Get engine statistics including Pathway status"""
+        # Get Pathway stats if available
+        pathway_stats = {}
+        pathway_server = get_pathway_server()
+        if pathway_server:
+            pathway_stats = pathway_server.get_stats()
+        
         return {
             "indexed_documents": len(self._documents),
+            "embeddings_count": len(self._embeddings),
+            "embeddings_available": EMBEDDINGS_AVAILABLE and self._embedder is not None,
+            "search_method": "hybrid" if (self._embedder and self._embeddings) else "keyword",
             "model": self.model,
-            "base_url": self.base_url
+            "base_url": self.base_url,
+            "pathway_enabled": Config.USE_PATHWAY,
+            "pathway_running": pathway_server.is_running if pathway_server else False,
+            "pathway_stats": pathway_stats
         }
 
 

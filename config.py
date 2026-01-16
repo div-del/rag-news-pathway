@@ -57,6 +57,14 @@ class Config:
     # Pathway Settings
     PATHWAY_ENABLE_MONITORING = os.getenv("PATHWAY_ENABLE_MONITORING", "true").lower() == "true"
     PATHWAY_CACHE_DIR = os.getenv("PATHWAY_CACHE_DIR", "./cache")
+    PATHWAY_SERVER_PORT = int(os.getenv("PATHWAY_SERVER_PORT", 8765))
+    PATHWAY_SERVER_HOST = os.getenv("PATHWAY_SERVER_HOST", "127.0.0.1")
+    
+    # Enable/disable Pathway integration (set to True to use Pathway's streaming RAG)
+    USE_PATHWAY = os.getenv("USE_PATHWAY", "true").lower() == "true"
+    
+    # Local embedding model for Pathway (runs on CPU, no API cost)
+    LOCAL_EMBEDDING_MODEL = os.getenv("LOCAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
     
     # RAG Settings
     RAG_TOP_K = int(os.getenv("RAG_TOP_K", 5))  # Number of documents to retrieve

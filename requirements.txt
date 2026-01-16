@@ -23,6 +23,10 @@ asyncpg>=0.29.0
 # LLM Integration
 openai>=1.10.0
 
+# Local Embeddings (no API cost)
+sentence-transformers>=2.2.0
+numpy>=1.24.0
+
 # Utilities
 python-dotenv>=1.0.0
 typing-extensions>=4.5.0

@@ -3,7 +3,12 @@
  * Premium Interactive Experience
  */
 
-const API_BASE = '/api';
+// Use configurable API base (supports separate frontend/backend deployment)
+const API_BASE = window.LiveLensConfig?.API_BASE 
+    ? `${window.LiveLensConfig.API_BASE}/api` 
+    : '/api';
+const WS_BASE = window.LiveLensConfig?.WS_BASE || '';
+
 let wsConnection = null;
 let currentArticleId = null;
 let articles = [];
@@ -16,7 +21,9 @@ let aiChatSessionId = null;
 document.addEventListener('DOMContentLoaded', () => {
     initializeNavigation();
     initializeEventListeners();
+    initializeTheme();
     initializeAIChat();
+    initializePushNotifications();
     loadNewsFeed();
     loadStats();
     connectWebSocket();
@@ -46,6 +53,9 @@ function switchSection(section) {
 function initializeEventListeners() {
     // Fetch news button
     document.getElementById('fetch-news-btn').addEventListener('click', fetchNews);
+
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
     // Search
     document.getElementById('search-input').addEventListener('input', debounce(filterArticles, 300));
@@ -241,9 +251,23 @@ function filterArticles() {
 // or better, update the event listener to call loadNewsFeed directly for category changes.
 
 function updateStats() {
-    document.getElementById('article-count').textContent = `${articles.length} articles`;
-    document.getElementById('indexed-count').textContent = `${articles.length} articles indexed`;
-    document.getElementById('last-update').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+    const articleCount = document.getElementById('article-count');
+    if (articleCount) {
+        articleCount.textContent = `${articles.length} articles`;
+    }
+
+    // Also update the KB count if available but don't overwrite with just feed length if KB status is better
+    // This function runs on feed load, so it only knows about loaded articles
+
+    const indexedCount = document.getElementById('indexed-count');
+    if (indexedCount) {
+        indexedCount.textContent = `${articles.length} articles indexed`;
+    }
+
+    const lastUpdate = document.getElementById('last-update');
+    if (lastUpdate) {
+        lastUpdate.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+    }
 }
 
 function prependNewArticle(article) {
@@ -596,8 +620,15 @@ async function sendArticleChatMessage() {
             body: JSON.stringify({ query, expand_context: true })
         });
 
+        let responseHtml = result.response || '';
+        if (typeof marked !== 'undefined') {
+            responseHtml = marked.parse(responseHtml);
+        } else {
+            responseHtml = formatResponse(responseHtml);
+        }
+
         document.getElementById(loadingId).querySelector('.message-content').innerHTML =
-            `<p>${formatResponse(result.response)}</p>`;
+            `<div class="markdown-content">${responseHtml}</div>`;
 
     } catch (error) {
         document.getElementById(loadingId).querySelector('.message-content').innerHTML =
@@ -746,7 +777,12 @@ function connectWebSocket() {
     const statusText = document.getElementById('connection-status');
 
     try {
-        wsConnection = new WebSocket(`ws://${window.location.host}/ws/feed`);
+        // Support configurable WebSocket URL for separate frontend/backend deployment
+        const wsUrl = WS_BASE 
+            ? `${WS_BASE}/ws/feed`
+            : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/feed`;
+        
+        wsConnection = new WebSocket(wsUrl);
 
         wsConnection.onopen = () => {
             statusDot.classList.add('connected');
@@ -1010,3 +1046,523 @@ style.textContent = `
     @keyframes fadeOut { to { opacity: 0; transform: translateX(20px); } }
 `;
 document.head.appendChild(style);
+
+// ============ Theme Functions ============
+
+function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+}
+
+function updateThemeIcon(theme) {
+    const sunIcon = document.querySelector('.sun-icon');
+    const moonIcon = document.querySelector('.moon-icon');
+
+    if (theme === 'light') {
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
+    } else {
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
+    }
+}
+
+// ============ Push Notifications ============
+
+let pushSubscription = null;
+
+async function initializePushNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('Push notifications not supported');
+        return;
+    }
+
+    try {
+        // Register service worker
+        const registration = await navigator.serviceWorker.register('/static/sw.js');
+        console.log('Service Worker registered:', registration.scope);
+
+        // Check existing subscription
+        pushSubscription = await registration.pushManager.getSubscription();
+        updateNotificationUI(!!pushSubscription);
+
+    } catch (error) {
+        console.error('Service Worker registration failed:', error);
+    }
+}
+
+async function enablePushNotifications() {
+    try {
+        // Request permission
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            showToast('Notification permission denied', 'error');
+            return false;
+        }
+
+        // Get service worker registration
+        const registration = await navigator.serviceWorker.ready;
+
+        // Get VAPID public key from server
+        const response = await fetch('/api/push/vapid-key');
+        const { publicKey } = await response.json();
+
+        // Convert VAPID key to Uint8Array
+        const vapidKey = urlBase64ToUint8Array(publicKey);
+
+        // Subscribe to push
+        pushSubscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: vapidKey
+        });
+
+        // Send subscription to server
+        const subscribeResponse = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subscription: pushSubscription.toJSON(),
+                user_id: window.currentUserId
+            })
+        });
+
+        if (subscribeResponse.ok) {
+            showToast('Notifications enabled!', 'success');
+            updateNotificationUI(true);
+            return true;
+        }
+
+    } catch (error) {
+        console.error('Error enabling notifications:', error);
+        showToast('Failed to enable notifications', 'error');
+    }
+    return false;
+}
+
+async function disablePushNotifications() {
+    try {
+        if (pushSubscription) {
+            await pushSubscription.unsubscribe();
+
+            // Notify server
+            await fetch(`/api/push/unsubscribe?user_id=${window.currentUserId}`, {
+                method: 'DELETE'
+            });
+
+            pushSubscription = null;
+            updateNotificationUI(false);
+            showToast('Notifications disabled', 'info');
+        }
+    } catch (error) {
+        console.error('Error disabling notifications:', error);
+    }
+}
+
+async function sendTestNotification() {
+    try {
+        const token = await window.Clerk?.session?.getToken();
+        const response = await fetch('/api/push/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                title: '🎉 Test Notification',
+                body: 'Push notifications are working! You will receive breaking news alerts here.'
+            })
+        });
+
+        if (response.ok) {
+            showToast('Test notification sent!', 'success');
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Failed to send test', 'error');
+        }
+    } catch (error) {
+        console.error('Error sending test notification:', error);
+        showToast('Failed to send test notification', 'error');
+    }
+}
+
+function updateNotificationUI(enabled) {
+    const btn = document.getElementById('notification-toggle-btn');
+    const status = document.getElementById('notification-status');
+
+    if (btn) {
+        btn.textContent = enabled ? 'Disable Notifications' : 'Enable Notifications';
+        btn.classList.toggle('btn-danger', enabled);
+    }
+    if (status) {
+        status.textContent = enabled ? 'Enabled' : 'Disabled';
+        status.style.color = enabled ? 'var(--accent-success)' : 'var(--text-tertiary)';
+    }
+}
+
+// Convert VAPID key from base64 to Uint8Array
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+// Listen for messages from service worker
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'OPEN_ARTICLE') {
+            openArticle(event.data.articleId);
+        }
+    });
+}
+
+// ============ Demo Mode Functions ============
+
+function toggleDemoPanel() {
+    const panel = document.getElementById('demo-panel');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+    } else {
+        panel.style.display = 'none';
+    }
+}
+
+// Initialize demo toggle button
+document.addEventListener('DOMContentLoaded', () => {
+    const demoBtn = document.getElementById('demo-toggle-btn');
+    if (demoBtn) {
+        demoBtn.addEventListener('click', toggleDemoPanel);
+    }
+
+    // Start polling knowledge base status
+    loadKnowledgeBaseStatus();
+    setInterval(loadKnowledgeBaseStatus, 10000); // Poll every 10 seconds
+});
+
+async function injectDemoArticle() {
+    const titleInput = document.getElementById('demo-title');
+    const contentInput = document.getElementById('demo-content');
+    const categorySelect = document.getElementById('demo-category');
+    const topicsInput = document.getElementById('demo-topics');
+    const injectBtn = document.getElementById('inject-demo-btn');
+
+    const title = titleInput.value.trim();
+    const content = contentInput.value.trim();
+    const category = categorySelect.value;
+    const topicsStr = topicsInput.value.trim();
+    const topics = topicsStr ? topicsStr.split(',').map(t => t.trim()) : [];
+
+    if (!title || !content) {
+        showNotification('Please enter a title and content', 'warning');
+        return;
+    }
+
+    // Disable button during injection
+    const originalContent = injectBtn.innerHTML;
+    injectBtn.innerHTML = `
+        <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        Injecting...
+    `;
+    injectBtn.disabled = true;
+
+    try {
+        const result = await fetchAPI('/demo/inject-article', {
+            method: 'POST',
+            body: JSON.stringify({
+                title,
+                content,
+                category,
+                topics
+            })
+        });
+
+        showNotification(`✅ Article injected! ID: ${result.article_id}`, 'success');
+
+        // Clear inputs
+        titleInput.value = '';
+        contentInput.value = '';
+        topicsInput.value = '';
+
+        // Trigger pulse animation
+        triggerKnowledgeBasePulse();
+
+        // Refresh knowledge base status
+        await loadKnowledgeBaseStatus();
+
+        // Auto-switch to AI Chat with a suggestion
+        showNotification(`💡 Tip: Ask the AI about "${title.split(' ').slice(0, 4).join(' ')}..."`, 'info');
+
+    } catch (error) {
+        console.error('Demo injection error:', error);
+        showNotification('❌ Failed to inject article', 'error');
+    }
+
+    injectBtn.innerHTML = originalContent;
+    injectBtn.disabled = false;
+}
+
+// ============ Knowledge Base Status Functions ============
+
+async function loadKnowledgeBaseStatus() {
+    try {
+        const status = await fetchAPI('/knowledge-base/status');
+
+        // Update article count
+        const countEl = document.getElementById('kb-article-count');
+        if (countEl) {
+            const oldCount = parseInt(countEl.textContent) || 0;
+            const newCount = status.article_count || 0;
+            countEl.textContent = newCount;
+
+            // Trigger pulse if count increased
+            if (newCount > oldCount && oldCount > 0) {
+                triggerKnowledgeBasePulse();
+            }
+        }
+
+        // Update search method badge
+        const methodBadge = document.getElementById('search-method-badge');
+        if (methodBadge) {
+            const method = status.search_method || 'keyword';
+            methodBadge.textContent = method;
+            methodBadge.setAttribute('data-method', method);
+            methodBadge.title = `Search: ${method === 'hybrid' ? 'Vector + Keyword' : method === 'vector' ? 'Vector Only' : 'Keyword Only'}`;
+        }
+
+        // Also update legacy article count elements
+        const articleCountEl = document.getElementById('article-count');
+        if (articleCountEl) {
+            articleCountEl.textContent = `${status.article_count} articles`;
+        }
+
+        const indexedCountEl = document.getElementById('indexed-count');
+        if (indexedCountEl) {
+            const embeddingInfo = status.embeddings_available ? ` (${status.embeddings_count} embeddings)` : '';
+            indexedCountEl.textContent = `${status.article_count} articles indexed${embeddingInfo}`;
+        }
+
+    } catch (error) {
+        console.debug('Could not load knowledge base status:', error);
+    }
+}
+
+function triggerKnowledgeBasePulse() {
+    const pulseEl = document.getElementById('kb-pulse');
+    if (pulseEl) {
+        // Remove and re-add the class to restart animation
+        pulseEl.classList.remove('active');
+        void pulseEl.offsetWidth; // Force reflow
+        pulseEl.classList.add('active');
+
+        // Remove class after animation completes
+        setTimeout(() => {
+            pulseEl.classList.remove('active');
+        }, 1000);
+    }
+}
+
+// Enhanced prependNewArticle to trigger pulse
+const originalPrependNewArticle = prependNewArticle;
+function prependNewArticle(article) {
+    // Call original function if it exists
+    if (typeof originalPrependNewArticle === 'function') {
+        originalPrependNewArticle(article);
+    }
+
+    // Trigger knowledge base pulse
+    triggerKnowledgeBasePulse();
+
+    // Update knowledge base status
+    loadKnowledgeBaseStatus();
+}
+
+// ============ Pathway Status Functions ============
+
+function updatePathwayStatus(status) {
+    const indicator = document.getElementById('pathway-indicator');
+    const label = document.getElementById('pathway-label');
+    const container = document.getElementById('pathway-status');
+    
+    if (!indicator || !label || !container) return;
+    
+    const pathway = status.pathway || {};
+    const isRunning = pathway.running || false;
+    const isEnabled = pathway.enabled || false;
+    
+    if (isRunning) {
+        indicator.classList.add('active');
+        label.textContent = 'Pathway Active';
+        container.title = `Pathway Streaming Engine - Running\nDocuments: ${pathway.documents_indexed || 0}\nAvg Latency: ${pathway.avg_query_latency_ms || 0}ms`;
+        container.style.background = 'linear-gradient(135deg, rgba(0, 198, 255, 0.2), rgba(0, 114, 255, 0.2))';
+    } else if (isEnabled) {
+        indicator.classList.remove('active');
+        label.textContent = 'Pathway Starting...';
+        container.title = 'Pathway Streaming Engine - Starting';
+        container.style.background = 'rgba(255, 193, 7, 0.2)';
+    } else {
+        indicator.classList.remove('active');
+        label.textContent = 'Local RAG';
+        container.title = 'Using local RAG engine (Pathway disabled)';
+        container.style.background = 'rgba(108, 117, 125, 0.2)';
+    }
+}
+
+// Update loadKnowledgeBaseStatus to also update Pathway status
+const originalLoadKnowledgeBaseStatus = loadKnowledgeBaseStatus;
+async function loadKnowledgeBaseStatus() {
+    try {
+        const status = await fetchAPI('/knowledge-base/status');
+
+        // Update article count
+        const countEl = document.getElementById('kb-article-count');
+        if (countEl) {
+            const oldCount = parseInt(countEl.textContent) || 0;
+            const newCount = status.article_count || 0;
+            countEl.textContent = newCount;
+
+            // Trigger pulse if count increased
+            if (newCount > oldCount && oldCount > 0) {
+                triggerKnowledgeBasePulse();
+            }
+        }
+
+        // Update search method badge
+        const methodBadge = document.getElementById('search-method-badge');
+        if (methodBadge) {
+            const method = status.search_method || 'keyword';
+            // Show "pathway" if Pathway is being used
+            const displayMethod = status.pathway?.running ? 'pathway' : method;
+            methodBadge.textContent = displayMethod;
+            methodBadge.setAttribute('data-method', displayMethod);
+            methodBadge.title = displayMethod === 'pathway' ? 'Pathway Real-Time RAG' :
+                              `Search: ${method === 'hybrid' ? 'Vector + Keyword' : method === 'vector' ? 'Vector Only' : 'Keyword Only'}`;
+        }
+
+        // Update Pathway status
+        updatePathwayStatus(status);
+
+        // Also update legacy article count elements
+        const articleCountEl = document.getElementById('article-count');
+        if (articleCountEl) {
+            articleCountEl.textContent = `${status.article_count} articles`;
+        }
+
+        const indexedCountEl = document.getElementById('indexed-count');
+        if (indexedCountEl) {
+            const embeddingInfo = status.embeddings_available ? ` (${status.embeddings_count} embeddings)` : '';
+            indexedCountEl.textContent = `${status.article_count} articles indexed${embeddingInfo}`;
+        }
+
+    } catch (error) {
+        console.debug('Could not load knowledge base status:', error);
+    }
+}
+
+// ============ Dynamism Test Functions ============
+
+async function testDynamism() {
+    const modal = document.getElementById('dynamism-modal');
+    const loading = document.getElementById('dynamism-loading');
+    const result = document.getElementById('dynamism-result');
+    
+    if (!modal) return;
+    
+    // Show modal with loading state
+    modal.style.display = 'flex';
+    loading.style.display = 'flex';
+    result.style.display = 'none';
+    
+    try {
+        const response = await fetchAPI('/demo/test-dynamism', {
+            method: 'POST'
+        });
+        
+        // Hide loading, show result
+        loading.style.display = 'none';
+        result.style.display = 'block';
+        
+        // Populate results
+        const demo = response.demonstration;
+        const proof = response.proof_of_dynamism;
+        
+        // Set verdict
+        const verdictEl = document.getElementById('dynamism-verdict');
+        if (proof.answer_changed || proof.new_data_reflected) {
+            verdictEl.innerHTML = '✅ SUCCESS: Real-time update demonstrated!';
+            verdictEl.className = 'dynamism-verdict success';
+        } else {
+            verdictEl.innerHTML = '⚠️ Article indexed, answer may not have changed significantly';
+            verdictEl.className = 'dynamism-verdict warning';
+        }
+        
+        // Before response
+        document.getElementById('before-response').textContent = demo.before.response;
+        document.getElementById('before-meta').textContent = 
+            `${demo.before.documents_found} docs | ${demo.before.search_method} | ${demo.before.latency_ms}ms`;
+        
+        // After response
+        document.getElementById('after-response').textContent = demo.after.response;
+        document.getElementById('after-meta').textContent = 
+            `${demo.after.documents_found} docs | ${demo.after.search_method} | ${demo.after.latency_ms}ms` +
+            (demo.after.new_article_in_context ? ' | ✓ New article used' : '');
+        
+        // Injection info
+        document.getElementById('injection-info').innerHTML = `
+            <strong>Injected:</strong><br>
+            "${demo.injection.title.substring(0, 30)}..."<br>
+            <small>${demo.injection.indexing_latency_ms}ms | Pathway: ${demo.injection.pathway_indexed ? '✓' : '✗'}</small>
+        `;
+        
+        // Total time
+        document.getElementById('total-time').textContent = 
+            `Total time: ${proof.total_time_ms}ms`;
+        
+        // Refresh knowledge base status
+        loadKnowledgeBaseStatus();
+        
+        showNotification('⚡ Dynamism test completed!', 'success');
+        
+    } catch (error) {
+        console.error('Dynamism test error:', error);
+        loading.style.display = 'none';
+        result.style.display = 'block';
+        document.getElementById('dynamism-verdict').innerHTML = '❌ Test failed: ' + error.message;
+        document.getElementById('dynamism-verdict').className = 'dynamism-verdict error';
+    }
+}
+
+function closeDynamismModal() {
+    const modal = document.getElementById('dynamism-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('dynamism-modal');
+    if (modal && e.target === modal) {
+        closeDynamismModal();
+    }
+});
+

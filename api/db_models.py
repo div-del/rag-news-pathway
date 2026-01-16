@@ -15,6 +15,21 @@ from sqlalchemy.orm import relationship
 Base = declarative_base()
 
 
+class ClerkUser(Base):
+    """Clerk authenticated user"""
+    __tablename__ = "clerk_users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    clerk_id = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(255), nullable=True)
+    first_name = Column(String(255), nullable=True)
+    last_name = Column(String(255), nullable=True)
+    image_url = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class User(Base):
     """User account table"""
     __tablename__ = "users"

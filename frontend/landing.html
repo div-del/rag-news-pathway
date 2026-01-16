@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveLens | AI-Powered News Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .landing-page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 1;
+        }
+
+        .landing-header {
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .hero {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            color: var(--accent-primary);
+            margin-bottom: 2rem;
+        }
+
+        .hero-badge .pulse {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #00f2ff 50%, #7000ff 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 3rem;
+            line-height: 1.7;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn-cta-primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 20px rgba(0, 114, 255, 0.4);
+        }
+
+        .btn-cta-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0, 114, 255, 0.5);
+        }
+
+        .btn-cta-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-cta-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-primary);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .landing-footer {
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Auth check loading state */
+        .auth-loading {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .auth-loading.hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <!-- Animated Background -->
+        <div class="bg-effects">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="gradient-orb orb-3"></div>
+        </div>
+
+        <div class="landing-page">
+            <!-- Header -->
+            <header class="landing-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect width="32" height="32" rx="8" fill="url(#logo-gradient)" />
+                            <path d="M8 10h16M8 16h12M8 22h8" stroke="white" stroke-width="2" stroke-linecap="round" />
+                            <circle cx="24" cy="22" r="4" fill="white" opacity="0.9" />
+                            <defs>
+                                <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
+                                    <stop stop-color="#00c6ff" />
+                                    <stop offset="1" stop-color="#0072ff" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <span class="logo-name">LiveLens</span>
+                        <span class="logo-tagline">Powered by Pathway</span>
+                    </div>
+                </div>
+                <button id="sign-in-btn" class="btn-primary" style="display: none;">
+                    Sign In
+                </button>
+            </header>
+
+            <!-- Hero Section -->
+            <section class="hero">
+                <div class="hero-badge">
+                    <span class="pulse"></span>
+                    <span>Real-time AI News Intelligence</span>
+                </div>
+
+                <h1>Your Personal AI News Analyst</h1>
+
+                <p>
+                    Experience news like never before. LiveLens uses advanced RAG technology to fetch, analyze,
+                    and explain news in real-time. Ask questions, compare articles, and stay informed with AI-powered
+                    insights.
+                </p>
+
+                <div class="cta-group">
+                    <button id="get-started-btn" class="btn-cta btn-cta-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                        Get Started Free
+                    </button>
+                    <a href="#features" class="btn-cta btn-cta-secondary">
+                        Learn More
+                    </a>
+                </div>
+            </section>
+
+            <!-- Features Section -->
+            <section id="features" class="features">
+                <div class="feature-card">
+                    <div class="feature-icon">📰</div>
+                    <h3>Real-Time News Feed</h3>
+                    <p>Automatically fetches and indexes news from multiple sources, keeping you updated with the latest
+                        stories.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI Chat Assistant</h3>
+                    <p>Ask anything about current events. Our AI searches through all articles to give you comprehensive
+                        answers.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚖️</div>
+                    <h3>Article Comparison</h3>
+                    <p>Compare perspectives from different sources. Perfect for understanding complex topics from all
+                        angles.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎬</div>
+                    <h3>YouTube Analysis</h3>
+                    <p>Analyze related YouTube videos with AI-powered transcription and sentiment analysis.</p>
+                </div>
+            </section>
+
+            <!-- Footer -->
+            <footer class="landing-footer">
+                <p>© 2026 LiveLens • DataQuest • Powered by Pathway Framework</p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Clerk SDK -->
+    <script async crossorigin="anonymous"
+        data-clerk-publishable-key="pk_test_Y2xpbWJpbmctZW11LTY1LmNsZXJrLmFjY291bnRzLmRldiQ"
+        src="https://climbing-emu-65.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"></script>
+
+    <script>
+        window.addEventListener('load', async () => {
+            // Wait for Clerk to load
+            await window.Clerk.load();
+
+            const signInBtn = document.getElementById('sign-in-btn');
+            const getStartedBtn = document.getElementById('get-started-btn');
+
+            // Check if already signed in
+            if (window.Clerk.user) {
+                // Already authenticated, redirect to app
+                window.location.href = '/app';
+                return;
+            }
+
+            // Show sign in button
+            signInBtn.style.display = 'flex';
+
+            // Handle Get Started click
+            getStartedBtn.addEventListener('click', async () => {
+                await window.Clerk.openSignIn({
+                    afterSignInUrl: '/app',
+                    afterSignUpUrl: '/app'
+                });
+            });
+
+            // Handle Sign In button click
+            signInBtn.addEventListener('click', async () => {
+                await window.Clerk.openSignIn({
+                    afterSignInUrl: '/app',
+                    afterSignUpUrl: '/app'
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

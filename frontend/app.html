@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveLens | Next-Gen AI News</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .auth-loading {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .auth-loading.hidden {
+            display: none;
+        }
+
+        .auth-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-name {
+            font-size: 0.85rem;
+            font-weight: 500;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Auth Loading Overlay -->
+    <div id="auth-loading" class="auth-loading">
+        <div class="spinner"></div>
+        <span style="color: var(--text-secondary);">Checking authentication...</span>
+    </div>
+
+    <div class="app">
+        <!-- Animated Background -->
+        <div class="bg-effects">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="gradient-orb orb-3"></div>
+        </div>
+
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect width="32" height="32" rx="8" fill="url(#logo-gradient)" />
+                            <path d="M8 10h16M8 16h12M8 22h8" stroke="white" stroke-width="2" stroke-linecap="round" />
+                            <circle cx="24" cy="22" r="4" fill="white" opacity="0.9" />
+                            <defs>
+                                <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
+                                    <stop stop-color="#00c6ff" />
+                                    <stop offset="1" stop-color="#0072ff" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <span class="logo-name">LiveLens</span>
+                        <span class="logo-tagline">Powered by Pathway</span>
+                    </div>
+                    <div class="live-indicator">
+                        <span class="pulse"></span>
+                        <span>LIVE</span>
+                    </div>
+                </div>
+
+                <nav class="nav">
+                    <button class="nav-btn active" data-section="feed">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1" />
+                            <rect x="14" y="3" width="7" height="7" rx="1" />
+                            <rect x="3" y="14" width="7" height="7" rx="1" />
+                            <rect x="14" y="14" width="7" height="7" rx="1" />
+                        </svg>
+                        <span>Feed</span>
+                    </button>
+                    <button class="nav-btn" data-section="chat">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span>AI Chat</span>
+                    </button>
+                    <button class="nav-btn" data-section="compare">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="20" x2="18" y2="10" />
+                            <line x1="12" y1="20" x2="12" y2="4" />
+                            <line x1="6" y1="20" x2="6" y2="14" />
+                        </svg>
+                        <span>Compare</span>
+                    </button>
+                </nav>
+
+                <div class="header-actions">
+                    <button id="theme-toggle" class="nav-btn" title="Toggle Theme">
+                        <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" style="display: none;">
+                            <circle cx="12" cy="12" r="5" />
+                            <line x1="12" y1="1" x2="12" y2="3" />
+                            <line x1="12" y1="21" x2="12" y2="23" />
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                            <line x1="1" y1="12" x2="3" y2="12" />
+                            <line x1="21" y1="12" x2="23" y2="12" />
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                        </svg>
+                        <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                    </button>
+                    <button id="fetch-news-btn" class="btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="23 4 23 10 17 10" />
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>
+                        <span>Fetch News</span>
+                    </button>
+                    <!-- User Profile Dropdown -->
+                    <div id="user-menu-container" class="user-menu-container" style="display: none;">
+                        <button id="profile-trigger" class="user-menu-trigger">
+                            <img id="user-avatar" class="user-avatar" src="" alt="User">
+                            <span id="user-name" class="user-name"></span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown Menu -->
+                        <div id="profile-dropdown" class="profile-dropdown">
+                            <!-- User Info Section -->
+                            <div class="dropdown-user-info">
+                                <img id="dropdown-avatar" class="dropdown-avatar" src="" alt="">
+                                <div class="dropdown-user-details">
+                                    <span id="dropdown-name" class="dropdown-name"></span>
+                                    <span id="dropdown-email" class="dropdown-email"></span>
+                                </div>
+                            </div>
+
+                            <div class="dropdown-divider"></div>
+
+                            <!-- Menu Items -->
+                            <button class="dropdown-item" onclick="openSettings('profile')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                    <circle cx="12" cy="7" r="4" />
+                                </svg>
+                                <span>Profile Settings</span>
+                            </button>
+
+                            <button class="dropdown-item" onclick="openSettings('preferences')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <circle cx="12" cy="12" r="3" />
+                                    <path
+                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                                </svg>
+                                <span>Preferences</span>
+                            </button>
+
+                            <button class="dropdown-item" onclick="openSettings('notifications')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                                </svg>
+                                <span>Notifications</span>
+                            </button>
+
+                            <div class="dropdown-divider"></div>
+
+                            <button class="dropdown-item" id="dropdown-theme-toggle">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <circle cx="12" cy="12" r="5" />
+                                    <line x1="12" y1="1" x2="12" y2="3" />
+                                    <line x1="12" y1="21" x2="12" y2="23" />
+                                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                                    <line x1="1" y1="12" x2="3" y2="12" />
+                                    <line x1="21" y1="12" x2="23" y2="12" />
+                                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                                </svg>
+                                <span id="theme-toggle-text">Dark Mode</span>
+                            </button>
+
+                            <div class="dropdown-divider"></div>
+
+                            <button class="dropdown-item dropdown-item-danger" id="sign-out-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                                    <polyline points="16 17 21 12 16 7" />
+                                    <line x1="21" y1="12" x2="9" y2="12" />
+                                </svg>
+                                <span>Sign Out</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- News Feed Section -->
+            <section id="feed-section" class="section active">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h1>Your Personalized Feed</h1>
+                        <p>Real-time news powered by adaptive RAG</p>
+                    </div>
+                    <div class="section-actions">
+                        <div class="search-box">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
+                            <input type="text" id="search-input" placeholder="Search articles...">
+                        </div>
+                        <select id="category-filter" class="filter-select">
+                            <option value="">All Categories</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Science">Science</option>
+                            <option value="Business">Business</option>
+                            <option value="Health">Health</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Politics">Politics</option>
+                            <option value="World">World</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="news-feed" class="news-grid">
+                    <div class="empty-state">
+                        <div class="empty-icon">📰</div>
+                        <h3>No articles yet</h3>
+                        <p>Click "Fetch News" to load the latest articles</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI Chat Section -->
+            <section id="chat-section" class="section">
+                <div class="chat-layout">
+                    <div class="chat-main">
+                        <div class="chat-header-bar">
+                            <div class="chat-title">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                </svg>
+                                <div>
+                                    <h2>AI News Assistant</h2>
+                                    <span>Powered by Mistral • Remembers conversation context</span>
+                                </div>
+                            </div>
+                            <div class="chat-actions">
+                                <button id="new-chat-btn" class="btn-secondary" title="Start new conversation">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>
+                                    <span>New Chat</span>
+                                </button>
+                                <span id="indexed-count" class="chat-stats-badge">0 articles indexed</span>
+                            </div>
+                        </div>
+
+                        <div id="ai-chat-messages" class="chat-messages">
+                            <div class="message assistant">
+                                <div class="message-avatar">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path
+                                            d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                </div>
+                                <div class="message-content">
+                                    <div class="markdown-content">
+                                        <p>👋 <strong>Hello! I'm your AI News Assistant.</strong></p>
+                                        <p>I can help you:</p>
+                                        <ul>
+                                            <li>Answer questions about current news topics</li>
+                                            <li>Summarize articles on specific subjects</li>
+                                            <li>Find connections between different news stories</li>
+                                            <li>Explain complex news developments</li>
+                                        </ul>
+                                        <p>I'll automatically search our article database - and if I don't have enough
+                                            information, I'll fetch new articles for you!</p>
+                                        <p><em>Try asking about technology, finance, business, or any current
+                                                topic.</em></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="ai-chat-sources" class="chat-sources-panel" style="display: none;">
+                            <div class="sources-header">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <span>Sources Used</span>
+                            </div>
+                            <div id="sources-list" class="sources-list"></div>
+                        </div>
+
+                        <div class="chat-input-area">
+                            <div class="chat-input-wrapper">
+                                <input type="text" id="ai-chat-input" placeholder="Ask anything about current news...">
+                                <button id="send-ai-chat-btn" class="send-btn">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <line x1="22" y1="2" x2="11" y2="13" />
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="chat-hints">
+                                <span class="hint"
+                                    onclick="setAIChatQuery('What is the latest news about AI and technology?')">Latest
+                                    AI news</span>
+                                <span class="hint"
+                                    onclick="setAIChatQuery('Summarize today\\'s top business stories')">Business
+                                    summary</span>
+                                <span class="hint"
+                                    onclick="setAIChatQuery('What are the major headlines today?')">Today's
+                                    headlines</span>
+                                <span class="hint"
+                                    onclick="setAIChatQuery('Tell me about recent developments in finance')">Finance
+                                    updates</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- Compare Section -->
+            <section id="compare-section" class="section">
+                <div class="compare-layout">
+                    <div class="compare-header">
+                        <h1>Compare Articles</h1>
+                        <p>Select two articles for AI-powered comparative analysis</p>
+                    </div>
+
+                    <div class="compare-selector">
+                        <div class="compare-card">
+                            <div class="compare-card-header">
+                                <span class="compare-label">Article 1</span>
+                            </div>
+                            <div class="compare-controls-row"
+                                style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <select id="compare-cat-1" class="filter-select"
+                                    style="font-size: 0.85rem; padding: 0.4rem; flex: 1;"
+                                    onchange="updateCompareDropdown(1)">
+                                    <option value="">All Categories</option>
+                                    <option value="Technology">Technology</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="Science">Science</option>
+                                    <option value="Business">Business</option>
+                                    <option value="Health">Health</option>
+                                    <option value="Entertainment">Entertainment</option>
+                                    <option value="Sports">Sports</option>
+                                    <option value="Politics">Politics</option>
+                                    <option value="World">World</option>
+                                </select>
+                                <button id="compare-fetch-1" onclick="fetchCompareNews(1)" class="btn-primary"
+                                    style="padding: 0.4rem 0.8rem; font-size: 0.8rem; white-space: nowrap;">
+                                    Fetch
+                                </button>
+                            </div>
+                            <select id="compare-select-1" class="compare-select">
+                                <option value="">Select an article...</option>
+                            </select>
+                            <div id="compare-preview-1" class="compare-preview"></div>
+                        </div>
+
+                        <div class="compare-divider">
+                            <div class="vs-badge">VS</div>
+                        </div>
+
+                        <div class="compare-card">
+                            <div class="compare-card-header">
+                                <span class="compare-label">Article 2</span>
+                            </div>
+                            <div class="compare-controls-row"
+                                style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <select id="compare-cat-2" class="filter-select"
+                                    style="font-size: 0.85rem; padding: 0.4rem; flex: 1;"
+                                    onchange="updateCompareDropdown(2)">
+                                    <option value="">All Categories</option>
+                                    <option value="Technology">Technology</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="Science">Science</option>
+                                    <option value="Business">Business</option>
+                                    <option value="Health">Health</option>
+                                    <option value="Entertainment">Entertainment</option>
+                                    <option value="Sports">Sports</option>
+                                    <option value="Politics">Politics</option>
+                                    <option value="World">World</option>
+                                </select>
+                                <button id="compare-fetch-2" onclick="fetchCompareNews(2)" class="btn-primary"
+                                    style="padding: 0.4rem 0.8rem; font-size: 0.8rem; white-space: nowrap;">
+                                    Fetch
+                                </button>
+                            </div>
+                            <select id="compare-select-2" class="compare-select">
+                                <option value="">Select an article...</option>
+                            </select>
+                            <div id="compare-preview-2" class="compare-preview"></div>
+                        </div>
+                    </div>
+
+                    <div class="compare-action">
+                        <input type="text" id="compare-query" class="compare-input"
+                            placeholder="What would you like to compare? (e.g., Compare their impact on the market)">
+                        <button id="compare-btn" class="btn-primary btn-large">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                            </svg>
+                            <span>Analyze & Compare</span>
+                        </button>
+                    </div>
+
+                    <div id="compare-result" class="compare-result"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Article Modal -->
+        <div id="article-modal" class="modal">
+            <div class="modal-backdrop" onclick="closeModal()"></div>
+            <div class="modal-container">
+                <button class="modal-close" onclick="closeModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+                <div id="modal-article-content" class="modal-article"></div>
+                <div class="modal-chat">
+                    <h3>💬 Chat about this article</h3>
+                    <div id="article-chat-messages" class="article-chat-messages"></div>
+                    <div class="article-chat-input">
+                        <input type="text" id="article-chat-input" placeholder="Ask about this article...">
+                        <button id="send-article-chat-btn" class="send-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13" />
+                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- YouTube Video Analysis Section -->
+                <div class="youtube-section">
+                    <div class="youtube-header">
+                        <h3>🎬 YouTube Video Analysis</h3>
+                        <button id="fetch-youtube-btn" class="btn-secondary" onclick="fetchYouTubeVideos()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon points="23 7 16 12 23 17 23 7" />
+                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                            </svg>
+                            <span>Find Related Videos</span>
+                        </button>
+                    </div>
+
+                    <div id="youtube-videos-list" class="youtube-videos-list" style="display: none;">
+                        <!-- Video options will be populated here -->
+                    </div>
+
+                    <div id="youtube-analysis-loading" class="youtube-loading" style="display: none;">
+                        <div class="loading-spinner"></div>
+                        <p>Downloading audio, transcribing with Whisper, and analyzing...</p>
+                        <span class="loading-hint">This may take 1-3 minutes depending on video length</span>
+                    </div>
+
+                    <div id="youtube-analysis-result" class="youtube-analysis-result" style="display: none;">
+                        <div class="analysis-header">
+                            <h4>📊 Video Analysis</h4>
+                            <span id="video-sentiment" class="sentiment-badge"></span>
+                        </div>
+                        <div id="video-key-points" class="key-points"></div>
+                        <div id="video-analysis-text" class="analysis-text"></div>
+                        <details class="transcript-details">
+                            <summary>📝 View Full Transcript</summary>
+                            <div id="video-transcript" class="transcript-content"></div>
+                        </details>
+                    </div>
+                </div>
+
+                <div id="comparison-suggestion" class="comparison-suggestion"></div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <div class="status-left">
+                <div class="status-indicator">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="connection-status">Connecting...</span>
+                </div>
+                <!-- Pathway Status -->
+                <div class="pathway-status" id="pathway-status" title="Pathway Streaming Engine">
+                    <span class="pathway-indicator" id="pathway-indicator"></span>
+                    <span id="pathway-label">Pathway</span>
+                </div>
+            </div>
+            <div class="status-center">
+                <!-- Knowledge Base Status -->
+                <div class="kb-status" id="kb-status" title="Knowledge Base Status">
+                    <span class="kb-pulse" id="kb-pulse"></span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3" />
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                    </svg>
+                    <span id="kb-article-count">0</span>
+                    <span class="kb-label">articles</span>
+                    <span id="search-method-badge" class="search-method-badge" title="Search Method">keyword</span>
+                </div>
+                <span class="divider">•</span>
+                <span id="last-update">Ready</span>
+            </div>
+            <div class="status-right">
+                <button id="demo-toggle-btn" class="demo-toggle-btn" title="Demo Mode">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                    <span>Demo</span>
+                </button>
+                <button id="test-dynamism-btn" class="demo-toggle-btn" title="Test Real-Time Dynamism" onclick="testDynamism()" style="margin-left: 0.5rem; background: linear-gradient(135deg, #00c6ff, #0072ff);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                    <span>Test</span>
+                </button>
+                <span class="divider">•</span>
+                <span>DataQuest 2026 • Pathway</span>
+            </div>
+        </footer>
+
+        <!-- Demo Panel (collapsible) -->
+        <div id="demo-panel" class="demo-panel" style="display: none;">
+            <div class="demo-panel-header">
+                <h4>🎮 Demo Mode - Inject Test Article</h4>
+                <button class="demo-close-btn" onclick="toggleDemoPanel()">×</button>
+            </div>
+            <div class="demo-panel-content">
+                <div class="demo-input-group">
+                    <label>Title</label>
+                    <input type="text" id="demo-title" placeholder="e.g., Breaking: New AI Breakthrough">
+                </div>
+                <div class="demo-input-group">
+                    <label>Content</label>
+                    <textarea id="demo-content" placeholder="Article content..." rows="3"></textarea>
+                </div>
+                <div class="demo-input-row">
+                    <div class="demo-input-group">
+                        <label>Category</label>
+                        <select id="demo-category">
+                            <option value="Technology">Technology</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Science">Science</option>
+                            <option value="Business">Business</option>
+                            <option value="Health">Health</option>
+                            <option value="Demo">Demo</option>
+                        </select>
+                    </div>
+                    <div class="demo-input-group">
+                        <label>Topics (comma-separated)</label>
+                        <input type="text" id="demo-topics" placeholder="e.g., AI, machine learning">
+                    </div>
+                </div>
+                <button id="inject-demo-btn" class="btn-primary" onclick="injectDemoArticle()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Inject Article
+                </button>
+                <p class="demo-hint">After injection, ask the AI about your article to see instant RAG updates!</p>
+            </div>
+        </div>
+
+        <!-- Dynamism Test Result Modal -->
+        <div id="dynamism-modal" class="dynamism-modal" style="display: none;">
+            <div class="dynamism-modal-content">
+                <div class="dynamism-header">
+                    <h3>⚡ Real-Time Dynamism Test</h3>
+                    <button class="demo-close-btn" onclick="closeDynamismModal()">×</button>
+                </div>
+                <div id="dynamism-loading" class="dynamism-loading">
+                    <div class="spinner"></div>
+                    <p>Testing real-time updates...</p>
+                </div>
+                <div id="dynamism-result" class="dynamism-result" style="display: none;">
+                    <div class="dynamism-proof">
+                        <span id="dynamism-verdict" class="dynamism-verdict"></span>
+                    </div>
+                    <div class="dynamism-comparison">
+                        <div class="dynamism-before">
+                            <h4>🔴 BEFORE Injection</h4>
+                            <div id="before-response" class="response-box"></div>
+                            <small id="before-meta"></small>
+                        </div>
+                        <div class="dynamism-arrow">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                            <div id="injection-info" class="injection-info"></div>
+                        </div>
+                        <div class="dynamism-after">
+                            <h4>🟢 AFTER Injection</h4>
+                            <div id="after-response" class="response-box"></div>
+                            <small id="after-meta"></small>
+                        </div>
+                    </div>
+                    <div class="dynamism-stats">
+                        <span id="total-time"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- Configuration - Set your Railway backend URL here for production -->
+    <script>
+        // IMPORTANT: After deploying to Railway, set this to your Railway URL
+        // Example: window.LIVE_LENS_BACKEND_URL = 'https://live-lens-production.up.railway.app';
+        window.LIVE_LENS_BACKEND_URL = ''; // Empty means same-origin (backend serves frontend)
+    </script>
+    <script src="/static/config.js"></script>
+
+    <!-- Clerk SDK -->
+    <script async crossorigin="anonymous"
+        data-clerk-publishable-key="pk_test_Y2xpbWJpbmctZW11LTY1LmNsZXJrLmFjY291bnRzLmRldiQ"
+        src="https://climbing-emu-65.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"></script>
+
+    <script>
+        // Auth initialization - runs before app.js
+        window.addEventListener('load', async () => {
+            const authLoading = document.getElementById('auth-loading');
+
+            try {
+                await window.Clerk.load();
+
+                if (!window.Clerk.user) {
+                    // Not authenticated, redirect to landing
+                    window.location.href = '/';
+                    return;
+                }
+
+                // User is authenticated - set up UI
+                const user = window.Clerk.user;
+                const userMenuContainer = document.getElementById('user-menu-container');
+                const userAvatar = document.getElementById('user-avatar');
+                const userName = document.getElementById('user-name');
+                const dropdownAvatar = document.getElementById('dropdown-avatar');
+                const dropdownName = document.getElementById('dropdown-name');
+                const dropdownEmail = document.getElementById('dropdown-email');
+                const profileTrigger = document.getElementById('profile-trigger');
+                const profileDropdown = document.getElementById('profile-dropdown');
+                const signOutBtn = document.getElementById('sign-out-btn');
+                const themeToggleDropdown = document.getElementById('dropdown-theme-toggle');
+
+                // User info
+                const avatarUrl = user.imageUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.firstName || 'U');
+                const displayName = user.firstName || 'User';
+                const email = user.emailAddresses?.[0]?.emailAddress || '';
+
+                // Set user info in header and dropdown
+                userAvatar.src = avatarUrl;
+                userName.textContent = displayName;
+                dropdownAvatar.src = avatarUrl;
+                dropdownName.textContent = (user.firstName || '') + ' ' + (user.lastName || '');
+                dropdownEmail.textContent = email;
+                userMenuContainer.style.display = 'block';
+
+                // Toggle dropdown
+                profileTrigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    profileDropdown.classList.toggle('open');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!userMenuContainer.contains(e.target)) {
+                        profileDropdown.classList.remove('open');
+                    }
+                });
+
+                // Theme toggle in dropdown
+                themeToggleDropdown.addEventListener('click', () => {
+                    if (typeof toggleTheme === 'function') {
+                        toggleTheme();
+                    }
+                    updateThemeToggleText();
+                });
+
+                // Sign out handler
+                signOutBtn.addEventListener('click', async () => {
+                    await window.Clerk.signOut();
+                    window.location.href = '/';
+                });
+
+                // Store user data for API calls
+                window.currentUserId = user.id;
+                window.currentUserEmail = email;
+                window.currentUserName = displayName;
+
+                // Sync user to backend
+                try {
+                    const token = await window.Clerk.session.getToken();
+                    await fetch('/api/auth/sync', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                } catch (e) {
+                    console.warn('Could not sync user to backend:', e);
+                }
+
+                // Hide loading overlay
+                authLoading.classList.add('hidden');
+
+            } catch (error) {
+                console.error('Auth error:', error);
+                window.location.href = '/';
+            }
+        });
+
+        // Update theme toggle text based on current theme
+        function updateThemeToggleText() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const themeText = document.getElementById('theme-toggle-text');
+            if (themeText) {
+                themeText.textContent = currentTheme === 'light' ? 'Dark Mode' : 'Light Mode';
+            }
+        }
+
+        // Settings modal function
+        function openSettings(section) {
+            // Close dropdown
+            document.getElementById('profile-dropdown')?.classList.remove('open');
+
+            // Show settings modal
+            let modal = document.getElementById('settings-modal');
+            if (!modal) {
+                // Create modal if it doesn't exist
+                modal = document.createElement('div');
+                modal.id = 'settings-modal';
+                modal.className = 'settings-modal';
+                modal.innerHTML = `
+                    <div class="settings-container">
+                        <div class="settings-header">
+                            <h2 id="settings-title">Settings</h2>
+                            <button class="settings-close" onclick="closeSettings()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="settings-content" id="settings-content">
+                            <!-- Content loaded dynamically -->
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                // Close on backdrop click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) closeSettings();
+                });
+            }
+
+            // Load section content
+            const title = document.getElementById('settings-title');
+            const content = document.getElementById('settings-content');
+
+            if (section === 'profile') {
+                title.textContent = 'Profile Settings';
+                content.innerHTML = `
+                    <div class="settings-section">
+                        <h3>Account Information</h3>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">Name</span>
+                                <span class="settings-item-desc">${window.currentUserName || 'Not set'}</span>
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">Email</span>
+                                <span class="settings-item-desc">${window.currentUserEmail || 'Not set'}</span>
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">User ID</span>
+                                <span class="settings-item-desc" style="font-family: monospace; font-size: 0.75rem;">${window.currentUserId || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>Manage Account</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                            Account settings are managed through Clerk. 
+                            <a href="#" onclick="window.Clerk.openUserProfile()" style="color: var(--accent-primary);">Open Account Settings</a>
+                        </p>
+                    </div>
+                `;
+            } else if (section === 'preferences') {
+                title.textContent = 'Preferences';
+                content.innerHTML = `
+                    <div class="settings-section">
+                        <h3>Display</h3>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">Theme</span>
+                                <span class="settings-item-desc">Choose light or dark mode</span>
+                            </div>
+                            <button class="btn-secondary" onclick="toggleTheme(); updateThemeToggleText();">
+                                Toggle Theme
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>News Feed</h3>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">Default Category</span>
+                                <span class="settings-item-desc">Show all categories</span>
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">Articles per page</span>
+                                <span class="settings-item-desc">20 articles</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (section === 'notifications') {
+                title.textContent = 'Notifications';
+                const isEnabled = !!pushSubscription;
+                content.innerHTML = `
+                    <div class="settings-section">
+                        <h3>Push Notifications</h3>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">Breaking News Alerts</span>
+                                <span class="settings-item-desc">Get notified about breaking news stories</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span id="notification-status" style="font-size: 0.85rem; color: ${isEnabled ? 'var(--accent-success)' : 'var(--text-tertiary)'};">
+                                    ${isEnabled ? 'Enabled' : 'Disabled'}
+                                </span>
+                                <button 
+                                    id="notification-toggle-btn" 
+                                    class="btn-secondary ${isEnabled ? 'btn-danger' : ''}" 
+                                    onclick="${isEnabled ? 'disablePushNotifications()' : 'enablePushNotifications()'}"
+                                >
+                                    ${isEnabled ? 'Disable' : 'Enable'}
+                                </button>
+                            </div>
+                        </div>
+                        ${isEnabled ? `
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">Test Notification</span>
+                                <span class="settings-item-desc">Send a test notification to verify it works</span>
+                            </div>
+                            <button class="btn-secondary" onclick="sendTestNotification()">
+                                Send Test
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="settings-section">
+                        <h3>Email Notifications</h3>
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label">Daily Digest</span>
+                                <span class="settings-item-desc">Receive a daily summary email</span>
+                            </div>
+                            <span style="color: var(--text-tertiary);">Coming Soon</span>
+                        </div>
+                    </div>
+                    <p style="margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+                        <strong>Note:</strong> Push notifications require HTTPS in production. On localhost, they work without HTTPS.
+                    </p>
+                `;
+            }
+
+            modal.classList.add('open');
+        }
+
+        function closeSettings() {
+            const modal = document.getElementById('settings-modal');
+            if (modal) modal.classList.remove('open');
+        }
+    </script>
+
+    <script src="/static/app.js?v=8"></script>
+</body>
+
+</html>
