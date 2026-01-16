@@ -1,0 +1,58 @@
+# Render Blueprint - Infrastructure as Code
+# Deploy with: https://render.com/deploy
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # ===========================================
+  # Backend API Service (FastAPI + Pathway)
+  # ===========================================
+  - type: web
+    name: live-lens-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    
+    # Free tier settings
+    plan: free
+    
+    # Health check
+    healthCheckPath: /health
+    
+    # Environment variables
+    envVars:
+      # Required API Keys (set these in Render dashboard)
+      - key: SERPER_API_KEY
+        sync: false  # Will prompt during deploy
+      - key: OPENROUTER_API_KEY
+        sync: false  # Will prompt during deploy
+      
+      # Database connection (auto-linked from Postgres service)
+      - key: POSTGRES_CONNECTION_STRING
+        fromDatabase:
+          name: live-lens-db
+          property: connectionString
+      
+      # App configuration
+      - key: PORT
+        value: 8000
+      - key: HOST
+        value: 0.0.0.0
+      - key: USE_PATHWAY
+        value: "true"
+      - key: LLM_MODEL
+        value: "mistralai/devstral-2512:free"
+      - key: LOCAL_EMBEDDING_MODEL
+        value: "all-MiniLM-L6-v2"
+      
+      # Python settings
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+databases:
+  # ===========================================
+  # PostgreSQL Database (Free for 90 days)
+  # ===========================================
+  - name: live-lens-db
+    plan: free
+    databaseName: live_lens
+    user: live_lens_user

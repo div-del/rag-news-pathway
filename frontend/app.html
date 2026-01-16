@@ -687,11 +687,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
-    <!-- Configuration - Set your Railway backend URL here for production -->
+    <!-- Configuration - Backend URL for production -->
     <script>
-        // IMPORTANT: After deploying to Railway, set this to your Railway URL
-        // Example: window.LIVE_LENS_BACKEND_URL = 'https://live-lens-production.up.railway.app';
-        window.LIVE_LENS_BACKEND_URL = ''; // Empty means same-origin (backend serves frontend)
+        // For Render: Leave empty (same-origin, backend serves frontend)
+        // For split deployment: Set to your backend URL
+        // Example: window.LIVE_LENS_BACKEND_URL = 'https://live-lens-api.onrender.com';
+        window.LIVE_LENS_BACKEND_URL = ''; // Empty = same-origin (recommended for Render)
     </script>
     <script src="/static/config.js"></script>
 
