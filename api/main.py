@@ -203,48 +203,86 @@ async def background_news_fetcher():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler"""
+    """Application lifespan handler - optimized for fast startup"""
     global news_connector, article_scraper, background_fetch_task
     
-    logger.info("Starting Live AI News Platform...")
+    logger.info("Starting Live AI News Platform API...")
     
-    # Initialize components
+    # Initialize lightweight components only (no ML models here)
     news_connector = SerperNewsConnector()
     article_scraper = ArticleScraper()
     
-    # Initialize RAG and user components (singletons)
-    rag = get_rag_engine()
-    get_profile_manager()
-    rec = get_recommendation_engine()
+    logger.info("API server ready - heavy initialization will happen in background")
     
-    # Connect Pathway server to RAG engine if enabled
-    if Config.USE_PATHWAY:
-        try:
-            from pipeline.pathway_server import get_pathway_server
-            from rag.rag_engine import set_pathway_server
-            
-            pathway_server = get_pathway_server()
-            if pathway_server.start():
-                set_pathway_server(pathway_server)
-                logger.info("Pathway RAG server connected!")
-            else:
-                logger.warning("Pathway server failed to start, using local RAG")
-        except Exception as e:
-            logger.warning(f"Could not initialize Pathway: {e}")
+    # Yield immediately to let uvicorn bind the port
+    # This is critical for Render/Railway to detect the service is up
+    yield
     
-    # Sync recommendation engine with RAG data
-    rec._articles = rag._documents.copy()
-    logger.info(f"Synced {len(rec._articles)} articles to recommendation engine")
+    # Cleanup on shutdown
+    logger.info("Shutting down...")
+    if background_fetch_task:
+        background_fetch_task.cancel()
+    if news_connector:
+        news_connector.stop()
+    if article_scraper:
+        article_scraper.shutdown()
+
+
+# Background initialization task - runs AFTER server is up
+async def initialize_heavy_components():
+    """Initialize RAG, Pathway, and other heavy components in background"""
+    await asyncio.sleep(2)  # Let the server fully start first
     
-    # Start background news fetcher
-    background_fetch_task = asyncio.create_task(background_news_fetcher())
+    logger.info("Initializing RAG engine and recommendation system...")
     
-    logger.info("All components initialized, background fetcher started")
+    try:
+        # Initialize RAG and user components (singletons)
+        rag = get_rag_engine()
+        get_profile_manager()
+        rec = get_recommendation_engine()
+        
+        # Sync recommendation engine with RAG data
+        rec._articles = rag._documents.copy()
+        logger.info(f"Synced {len(rec._articles)} articles to recommendation engine")
+        
+        # Note: Pathway server is started by app.py, not here
+        # This avoids duplicate initialization
+        
+        logger.info("Heavy components initialized successfully!")
+        
+    except Exception as e:
+        logger.error(f"Error initializing components: {e}")
+
+
+# Startup event to trigger background initialization
+@asynccontextmanager
+async def lifespan_with_background_init(app: FastAPI):
+    """Lifespan with background initialization"""
+    global news_connector, article_scraper, background_fetch_task
+    
+    logger.info("Starting Live AI News Platform API...")
+    
+    # Initialize lightweight components only
+    news_connector = SerperNewsConnector()
+    article_scraper = ArticleScraper()
+    
+    logger.info("API server starting - port binding now...")
+    
+    # Start background initialization (non-blocking)
+    init_task = asyncio.create_task(initialize_heavy_components())
+    
+    # Start background news fetcher after init
+    async def delayed_news_fetcher():
+        await asyncio.sleep(10)  # Wait for init to complete
+        await background_news_fetcher()
+    
+    background_fetch_task = asyncio.create_task(delayed_news_fetcher())
     
     yield
     
     # Cleanup
     logger.info("Shutting down...")
+    init_task.cancel()
     if background_fetch_task:
         background_fetch_task.cancel()
     if news_connector:
@@ -262,12 +300,12 @@ async def lifespan(app: FastAPI):
             pass
 
 
-# Create FastAPI app
+# Create FastAPI app with optimized lifespan for fast startup
 app = FastAPI(
     title="Live Lens",
     description="Real-time news analysis with adaptive RAG using Pathway",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan_with_background_init
 )
 
 # Add CORS middleware
