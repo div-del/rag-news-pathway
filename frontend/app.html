@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/styles.css">
     <style>
         .auth-loading {
             position: fixed;
@@ -590,9 +590,11 @@
                     </svg>
                     <span>Demo</span>
                 </button>
-                <button id="test-dynamism-btn" class="demo-toggle-btn" title="Test Real-Time Dynamism" onclick="testDynamism()" style="margin-left: 0.5rem; background: linear-gradient(135deg, #00c6ff, #0072ff);">
+                <button id="test-dynamism-btn" class="demo-toggle-btn" title="Test Real-Time Dynamism"
+                    onclick="testDynamism()"
+                    style="margin-left: 0.5rem; background: linear-gradient(135deg, #00c6ff, #0072ff);">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                     </svg>
                     <span>Test</span>
                 </button>
@@ -666,8 +668,9 @@
                             <small id="before-meta"></small>
                         </div>
                         <div class="dynamism-arrow">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M5 12h14M12 5l7 7-7 7" />
                             </svg>
                             <div id="injection-info" class="injection-info"></div>
                         </div>
@@ -686,7 +689,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    
+
     <!-- Configuration - Backend URL for production -->
     <script>
         // For Render: Leave empty (same-origin, backend serves frontend)
@@ -694,7 +697,7 @@
         // Example: window.LIVE_LENS_BACKEND_URL = 'https://live-lens-api.onrender.com';
         window.LIVE_LENS_BACKEND_URL = ''; // Empty = same-origin (recommended for Render)
     </script>
-    <script src="/static/config.js"></script>
+    <script src="/config.js"></script>
 
     <!-- Clerk SDK -->
     <script async crossorigin="anonymous"
@@ -970,7 +973,7 @@
         }
     </script>
 
-    <script src="/static/app.js?v=8"></script>
+    <script src="/app.js?v=8"></script>
 </body>
 
 </html>
