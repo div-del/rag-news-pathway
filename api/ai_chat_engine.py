@@ -72,7 +72,7 @@ class AIChatEngine:
         # Use Mistral free model via OpenRouter
         self.api_key = Config.OPENROUTER_API_KEY
         self.base_url = Config.LLM_BASE_URL
-        self.model = "mistralai/mistral-7b-instruct:free"
+        self.model = Config.LLM_MODEL  # Use model from config
         
         # Initialize OpenAI client (works with OpenRouter)
         self._client = AsyncOpenAI(
