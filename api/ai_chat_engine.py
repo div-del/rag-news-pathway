@@ -186,44 +186,75 @@ class AIChatEngine:
         """
         Extract key topics from a user query for multi-topic search.
         Returns a list of search queries to try.
+        
+        Now uses actual keywords from the user's query for better relevance.
         """
         topics = []
         
-        # Start with the original query
+        # Start with the original query - this is most important!
         topics.append(query)
         
-        # Common topic patterns and their expansions
-        topic_expansions = {
-            # Immigration/Visa related
-            "visa": ["US visa policy", "immigration news", "USCIS update"],
-            "immigration": ["US immigration news", "visa policy update", "border news"],
-            "h1b": ["H1B visa news", "work visa USA", "tech immigration"],
-            "green card": ["green card news", "permanent residency USA", "immigration update"],
-            
-            # Finance related
-            "stock": ["stock market news", "trading update", "Wall Street"],
-            "finance": ["financial news USA", "economy update", "market report"],
-            "market": ["stock market today", "financial markets", "trading news"],
-            "bitcoin": ["cryptocurrency news", "bitcoin price", "crypto market"],
-            "crypto": ["cryptocurrency news", "bitcoin news", "blockchain"],
-            
-            # Tech related
-            "ai": ["artificial intelligence news", "AI technology", "machine learning"],
-            "tech": ["technology news", "Silicon Valley", "tech industry"],
-            "tesla": ["Tesla news", "electric vehicle", "Elon Musk"],
-            "apple": ["Apple news", "iPhone", "Apple company"],
-            "google": ["Google news", "tech giant", "Alphabet"],
-            
-            # General news
-            "economy": ["US economy news", "economic update", "GDP report"],
-            "jobs": ["employment news", "job market", "labor market"],
+        # Stop words to filter out
+        stop_words = {
+            'what', 'whats', "what's", 'is', 'are', 'the', 'a', 'an', 'in', 'on', 'at', 
+            'to', 'for', 'of', 'with', 'about', 'how', 'why', 'when', 'where', 'who',
+            'can', 'could', 'would', 'should', 'will', 'do', 'does', 'did', 'has', 'have',
+            'been', 'being', 'was', 'were', 'am', 'is', 'are', 'be', 'it', 'its', "it's",
+            'this', 'that', 'these', 'those', 'my', 'your', 'our', 'their', 'me', 'you',
+            'happening', 'going', 'tell', 'give', 'show', 'find', 'get', 'know', 'latest',
+            'news', 'update', 'updates', 'current', 'recent', 'today', 'now', 'please',
+            'i', 'we', 'they', 'he', 'she', 'and', 'or', 'but', 'if', 'then', 'so'
         }
         
-        # Extract key terms and find expansions
+        # Extract meaningful keywords from query
         query_lower = query.lower()
+        words = query_lower.replace('?', '').replace('!', '').replace(',', '').split()
+        
+        # Filter to get important keywords (longer words, not stop words)
+        keywords = [w for w in words if len(w) > 2 and w not in stop_words]
+        
+        # Create focused search queries from keywords
+        if len(keywords) >= 2:
+            # Combine key terms for specific search
+            keyword_query = ' '.join(keywords[:4]) + ' news'
+            topics.append(keyword_query)
+            
+            # Also try pairs of keywords
+            if len(keywords) >= 3:
+                topics.append(f"{keywords[0]} {keywords[1]} news")
+                topics.append(f"{keywords[1]} {keywords[2]} news")
+        elif len(keywords) == 1:
+            topics.append(f"{keywords[0]} news latest")
+        
+        # Common topic expansions (only if matched)
+        topic_expansions = {
+            # Location based
+            "bangalore": ["Bangalore news today", "Bengaluru latest news"],
+            "bengaluru": ["Bengaluru news today", "Bangalore latest news"],
+            "india": ["India news today", "Indian news latest"],
+            "mumbai": ["Mumbai news today", "Mumbai latest"],
+            "delhi": ["Delhi news today", "Delhi latest"],
+            
+            # Transport related
+            "taxi": ["taxi news", "cab service news", "ride hailing news"],
+            "uber": ["Uber news", "ride sharing news"],
+            "ola": ["Ola cabs news", "Ola taxi news"],
+            "ride": ["ride sharing news", "transportation news"],
+            "auto": ["auto rickshaw news", "transport news"],
+            
+            # Tech related
+            "ai": ["artificial intelligence news", "AI technology latest"],
+            "tech": ["technology news today", "tech industry news"],
+            
+            # Finance related
+            "stock": ["stock market news today", "market update"],
+            "crypto": ["cryptocurrency news", "bitcoin news today"],
+        }
+        
+        # Add expansions for matched keywords
         for keyword, expansions in topic_expansions.items():
             if keyword in query_lower:
-                topics.extend(expansions[:2])  # Add top 2 expansions
+                topics.extend(expansions[:2])
         
         # Remove duplicates while preserving order
         seen = set()
@@ -234,7 +265,7 @@ class AIChatEngine:
                 seen.add(t_lower)
                 unique_topics.append(t)
         
-        return unique_topics[:5]  # Limit to 5 topics
+        return unique_topics[:6]  # Limit to 6 topics for broader coverage
     
     def _calculate_relevance(self, query: str, articles: List[Dict[str, Any]]) -> Tuple[float, List[float]]:
         """
