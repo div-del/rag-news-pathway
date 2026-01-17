@@ -112,6 +112,8 @@ async function fetchAPI(endpoint, options = {}) {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
+                // Required for ngrok free tier to bypass browser warning page
+                'ngrok-skip-browser-warning': 'true',
                 ...options.headers
             }
         });
