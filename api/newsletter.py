@@ -182,6 +182,63 @@ class NewsletterService:
         finally:
             session.close()
     
+    def _clean_article_content(self, content: str) -> str:
+        """Clean article content by removing metadata and duplicates"""
+        if not content:
+            return ""
+        
+        lines = content.split('\n')
+        cleaned_lines = []
+        seen_lines = set()
+        
+        # Patterns to skip
+        skip_patterns = [
+            'Info:', 'Type:', 'start_time_local:', 'end_time_local:', 
+            'county_name:', 'state:', 'headline:', 'county_fips:', 
+            'category:', 'urgency:', 'severity:', 'certainty:', 
+            'geographicname:', 'state_name:', 'Bulletin:'
+        ]
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Skip empty lines
+            if not line:
+                continue
+            
+            # Skip metadata lines
+            if any(line.startswith(pattern) for pattern in skip_patterns):
+                continue
+            
+            # Skip duplicate lines (like repeated bulletins)
+            if line in seen_lines:
+                continue
+            
+            seen_lines.add(line)
+            cleaned_lines.append(line)
+        
+        return '\n\n'.join(cleaned_lines)
+    
+    def _is_valid_article(self, article: Dict[str, Any]) -> bool:
+        """Check if article has valid content (not weather alerts or metadata dumps)"""
+        content = article.get('content', '')
+        
+        # Check for weather alert patterns
+        weather_patterns = ['Bulletin:', 'WINTER WEATHER ADVISORY', 'PRECAUTIONARY/PREPAREDNESS ACTIONS']
+        if any(pattern in content for pattern in weather_patterns):
+            return False
+        
+        # Check for excessive metadata
+        metadata_count = content.count('Info:') + content.count('Type:') + content.count('state:')
+        if metadata_count > 5:
+            return False
+        
+        # Must have reasonable length
+        if len(content) < 200:
+            return False
+        
+        return True
+    
     def _get_article_by_category(self, category: str) -> Optional[Dict[str, Any]]:
         """Get a random article from the specified category"""
         try:
@@ -192,16 +249,18 @@ class NewsletterService:
             all_articles = store.get_all_articles(limit=50)
             category_articles = [
                 a for a in all_articles 
-                if a.get('category', '').lower() == category.lower()
+                if a.get('category', '').lower() == category.lower() and self._is_valid_article(a)
             ]
             
             if category_articles:
                 import random
                 return random.choice(category_articles)
-            elif all_articles:
-                # Fallback to any article
+            
+            # Fallback to any valid article from any category
+            valid_articles = [a for a in all_articles if self._is_valid_article(a)]
+            if valid_articles:
                 import random
-                return random.choice(all_articles)
+                return random.choice(valid_articles)
             
             return None
         except Exception as e:
@@ -228,7 +287,10 @@ class NewsletterService:
         url = article.get('url', self.site_url + '/app')
         article_id = article.get('article_id', '')
         
-        # Take 70% of content
+        # Clean the content first
+        content = self._clean_article_content(content)
+        
+        # Take 70% of cleaned content
         content_length = len(content)
         preview_length = int(content_length * 0.7)
         content_preview = content[:preview_length]

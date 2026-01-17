@@ -123,7 +123,11 @@ class SerperNewsConnector:
                     results.append(result)
                     
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error fetching news for '{query}': {e}")
+            if "Not enough credits" in e.response.text:
+                logger.warning(f"Serper API Quota Exceeded: Cannot fetch news for '{query}'")
+            else:
+                logger.error(f"HTTP error fetching news for '{query}': {e}")
+                logger.error(f"Response content: {e.response.text}")
         except Exception as e:
             logger.error(f"Error fetching news for '{query}': {e}")
         
