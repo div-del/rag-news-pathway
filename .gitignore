@@ -26,3 +26,4 @@ package-lock.json
 
 # Private keys
 *.pem
+.vercel
