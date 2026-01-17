@@ -313,20 +313,25 @@ class NewsletterService:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0f; color: #e0e0e0; padding: 20px; margin: 0; }}
-        .container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; overflow: hidden; }}
-        .header {{ background: linear-gradient(135deg, #00c6ff, #0072ff); padding: 25px; text-align: center; }}
-        .header h1 {{ color: white; margin: 0; font-size: 22px; }}
-        .category {{ display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; margin-top: 10px; text-transform: uppercase; font-weight: 600; }}
-        .content {{ padding: 25px; }}
-        .article-title {{ color: #fff; font-size: 20px; line-height: 1.4; margin-bottom: 15px; }}
-        .article-meta {{ color: #888; font-size: 12px; margin-bottom: 20px; }}
-        .article-content {{ color: #c0c0c0; font-size: 15px; line-height: 1.7; white-space: pre-wrap; }}
-        .read-more {{ display: inline-block; background: linear-gradient(135deg, #00c6ff, #0072ff); color: white; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; margin-top: 25px; font-size: 15px; }}
-        .read-more:hover {{ opacity: 0.9; }}
-        .divider {{ border: none; border-top: 1px solid #333; margin: 25px 0; }}
-        .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #333; }}
-        .footer a {{ color: #00c6ff; text-decoration: none; }}
+        body {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0f; color: #e0e0e0; padding: 30px 20px; margin: 0; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }}
+        .header {{ background: linear-gradient(135deg, #00c6ff, #0072ff); padding: 35px 30px; text-align: center; }}
+        .header h1 {{ color: white; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.3px; }}
+        .category {{ display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 8px 18px; border-radius: 25px; font-size: 13px; margin-top: 15px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }}
+        .content {{ padding: 40px 35px; }}
+        .article-title {{ color: #fff; font-size: 22px; line-height: 1.5; margin: 0 0 20px 0; font-weight: 700; }}
+        .article-meta {{ color: #999; font-size: 13px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }}
+        .article-content {{ color: #d0d0d0; font-size: 16px; line-height: 1.8; margin-bottom: 30px; }}
+        .article-content p {{ margin: 0 0 20px 0; }}
+        .continue-reading {{ color: #888; margin: 30px 0; font-style: italic; font-size: 14px; text-align: center; }}
+        .read-more {{ display: inline-block; background: linear-gradient(135deg, #00c6ff, #0072ff); color: white; padding: 16px 35px; border-radius: 12px; text-decoration: none; font-weight: 600; margin: 10px 0 30px 0; font-size: 16px; box-shadow: 0 4px 15px rgba(0,198,255,0.3); }}
+        .read-more:hover {{ opacity: 0.9; transform: translateY(-1px); }}
+        .divider {{ border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 35px 0; }}
+        .footer-note {{ color: #888; text-align: center; font-size: 14px; line-height: 1.6; margin: 0 0 30px 0; padding: 0 10px; }}
+        .footer {{ padding: 25px 30px; text-align: center; color: #666; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }}
+        .footer p {{ margin: 8px 0; }}
+        .footer a {{ color: #00c6ff; text-decoration: none; padding: 0 8px; }}
+        .footer a:hover {{ color: #00e0ff; }}
     </style>
 </head>
 <body>
@@ -337,11 +342,11 @@ class NewsletterService:
         </div>
         <div class="content">
             <h2 class="article-title">{title}</h2>
-            <p class="article-meta">📍 Source: {source}</p>
+            <p class="article-meta">📍 {source}</p>
             
             <div class="article-content">{content_preview}</div>
             
-            <p style="color: #888; margin-top: 20px; font-style: italic;">... article continues</p>
+            <p class="continue-reading">... article continues</p>
             
             <center>
                 <a href="{read_more_url}" class="read-more">📖 Read Full Article →</a>
@@ -349,8 +354,8 @@ class NewsletterService:
             
             <hr class="divider">
             
-            <p style="color: #888; text-align: center; font-size: 13px;">
-                Thanks for subscribing to LiveLens! We'll send you curated {category} news.
+            <p class="footer-note">
+                Thanks for subscribing to LiveLens! We'll keep you updated with curated {category} news.
             </p>
         </div>
         <div class="footer">
