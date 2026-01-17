@@ -732,9 +732,11 @@
     <!-- Configuration - Backend URL for production -->
     <script>
         // For Render: Leave empty (same-origin, backend serves frontend)
-        // For split deployment: Set to your backend URL
-        // Example: window.LIVE_LENS_BACKEND_URL = 'https://live-lens-api.onrender.com';
-        window.LIVE_LENS_BACKEND_URL = ''; // Empty = same-origin (recommended for Render)
+        // For split deployment (e.g., Vercel frontend + local backend):
+        //   1. Run: ngrok http 8000
+        //   2. Set the URL below to your ngrok URL
+        // Example: window.LIVE_LENS_BACKEND_URL = 'https://abc123.ngrok-free.app';
+        window.LIVE_LENS_BACKEND_URL = ''; // Set your ngrok URL here for remote access
     </script>
     <script src="/config.js"></script>
 
