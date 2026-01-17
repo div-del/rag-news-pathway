@@ -329,6 +329,9 @@
         src="https://climbing-emu-65.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
         type="text/javascript"></script>
 
+    <!-- Config -->
+    <script src="/config.js"></script>
+
     <script>
         window.addEventListener('load', async () => {
             // Wait for Clerk to load
@@ -384,7 +387,12 @@
                 submitBtn.innerHTML = '📨 Sending article...';
 
                 try {
-                    const response = await fetch('/api/newsletter/subscribe', {
+                    // Use configured API URL
+                    const apiUrl = window.LiveLensConfig 
+                        ? window.LiveLensConfig.apiUrl('/newsletter/subscribe')
+                        : '/api/newsletter/subscribe';
+                        
+                    const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email, category })

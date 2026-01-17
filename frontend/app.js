@@ -4,8 +4,8 @@
  */
 
 // Use configurable API base (supports separate frontend/backend deployment)
-const API_BASE = window.LiveLensConfig?.API_BASE 
-    ? `${window.LiveLensConfig.API_BASE}/api` 
+const API_BASE = window.LiveLensConfig?.API_BASE
+    ? `${window.LiveLensConfig.API_BASE}/api`
     : '/api';
 const WS_BASE = window.LiveLensConfig?.WS_BASE || '';
 
@@ -27,6 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
     loadNewsFeed();
     loadStats();
     connectWebSocket();
+
+    // URL Routing: Open article if specified in query params
+    const urlParams = new URLSearchParams(window.location.search);
+    const articleId = urlParams.get('article');
+    if (articleId) {
+        // Wait slightly for feed to initialize, but loadArticle handles its own fetch
+        setTimeout(() => openArticle(articleId), 500);
+    }
 });
 
 function initializeNavigation() {
@@ -778,10 +786,10 @@ function connectWebSocket() {
 
     try {
         // Support configurable WebSocket URL for separate frontend/backend deployment
-        const wsUrl = WS_BASE 
+        const wsUrl = WS_BASE
             ? `${WS_BASE}/ws/feed`
             : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/feed`;
-        
+
         wsConnection = new WebSocket(wsUrl);
 
         wsConnection.onopen = () => {
@@ -1402,13 +1410,13 @@ function updatePathwayStatus(status) {
     const indicator = document.getElementById('pathway-indicator');
     const label = document.getElementById('pathway-label');
     const container = document.getElementById('pathway-status');
-    
+
     if (!indicator || !label || !container) return;
-    
+
     const pathway = status.pathway || {};
     const isRunning = pathway.running || false;
     const isEnabled = pathway.enabled || false;
-    
+
     if (isRunning) {
         indicator.classList.add('active');
         label.textContent = 'Pathway Active';
@@ -1455,7 +1463,7 @@ async function loadKnowledgeBaseStatus() {
             methodBadge.textContent = displayMethod;
             methodBadge.setAttribute('data-method', displayMethod);
             methodBadge.title = displayMethod === 'pathway' ? 'Pathway Real-Time RAG' :
-                              `Search: ${method === 'hybrid' ? 'Vector + Keyword' : method === 'vector' ? 'Vector Only' : 'Keyword Only'}`;
+                `Search: ${method === 'hybrid' ? 'Vector + Keyword' : method === 'vector' ? 'Vector Only' : 'Keyword Only'}`;
         }
 
         // Update Pathway status
@@ -1484,27 +1492,27 @@ async function testDynamism() {
     const modal = document.getElementById('dynamism-modal');
     const loading = document.getElementById('dynamism-loading');
     const result = document.getElementById('dynamism-result');
-    
+
     if (!modal) return;
-    
+
     // Show modal with loading state
     modal.style.display = 'flex';
     loading.style.display = 'flex';
     result.style.display = 'none';
-    
+
     try {
         const response = await fetchAPI('/demo/test-dynamism', {
             method: 'POST'
         });
-        
+
         // Hide loading, show result
         loading.style.display = 'none';
         result.style.display = 'block';
-        
+
         // Populate results
         const demo = response.demonstration;
         const proof = response.proof_of_dynamism;
-        
+
         // Set verdict
         const verdictEl = document.getElementById('dynamism-verdict');
         if (proof.answer_changed || proof.new_data_reflected) {
@@ -1514,34 +1522,34 @@ async function testDynamism() {
             verdictEl.innerHTML = '⚠️ Article indexed, answer may not have changed significantly';
             verdictEl.className = 'dynamism-verdict warning';
         }
-        
+
         // Before response
         document.getElementById('before-response').textContent = demo.before.response;
-        document.getElementById('before-meta').textContent = 
+        document.getElementById('before-meta').textContent =
             `${demo.before.documents_found} docs | ${demo.before.search_method} | ${demo.before.latency_ms}ms`;
-        
+
         // After response
         document.getElementById('after-response').textContent = demo.after.response;
-        document.getElementById('after-meta').textContent = 
+        document.getElementById('after-meta').textContent =
             `${demo.after.documents_found} docs | ${demo.after.search_method} | ${demo.after.latency_ms}ms` +
             (demo.after.new_article_in_context ? ' | ✓ New article used' : '');
-        
+
         // Injection info
         document.getElementById('injection-info').innerHTML = `
             <strong>Injected:</strong><br>
             "${demo.injection.title.substring(0, 30)}..."<br>
             <small>${demo.injection.indexing_latency_ms}ms | Pathway: ${demo.injection.pathway_indexed ? '✓' : '✗'}</small>
         `;
-        
+
         // Total time
-        document.getElementById('total-time').textContent = 
+        document.getElementById('total-time').textContent =
             `Total time: ${proof.total_time_ms}ms`;
-        
+
         // Refresh knowledge base status
         loadKnowledgeBaseStatus();
-        
+
         showNotification('⚡ Dynamism test completed!', 'success');
-        
+
     } catch (error) {
         console.error('Dynamism test error:', error);
         loading.style.display = 'none';
