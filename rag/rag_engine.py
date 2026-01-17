@@ -612,7 +612,8 @@ Please provide a comprehensive answer based on the articles above."""
                 )
                 
                 # Add related articles (excluding main)
-                for doc in related:
+                # _simple_search returns (doc, score) tuples
+                for doc, score in related:
                     if doc.get("article_id") != article_id:
                         documents.append(doc)
                         if len(documents) > top_k + 1:
