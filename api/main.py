@@ -29,6 +29,7 @@ from api.push import (
     get_vapid_public_key, save_subscription, remove_subscription,
     send_push_notification, get_subscription
 )
+from api.newsletter import get_newsletter_service
 
 logger = logging.getLogger(__name__)
 
@@ -496,6 +497,74 @@ async def get_stats():
         "recommendation_engine": rec.get_stats(),
         "profile_manager": profile.get_stats(),
         "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+# ============ Newsletter ============
+
+class NewsletterSubscribeRequest(BaseModel):
+    email: str = Field(..., description="Email address to subscribe")
+    name: Optional[str] = Field(None, description="Subscriber name")
+    preferences: str = Field("all", description="Subscription preference: all, daily, weekly")
+
+@app.post("/api/newsletter/subscribe")
+async def subscribe_newsletter(request: NewsletterSubscribeRequest):
+    """Subscribe to the newsletter"""
+    newsletter = get_newsletter_service()
+    result = newsletter.subscribe(
+        email=request.email,
+        name=request.name,
+        preferences=request.preferences
+    )
+    
+    if result["success"]:
+        return result
+    else:
+        raise HTTPException(status_code=400, detail=result["message"])
+
+@app.get("/api/newsletter/unsubscribe/{token}")
+async def unsubscribe_newsletter(token: str):
+    """Unsubscribe from newsletter using token"""
+    newsletter = get_newsletter_service()
+    result = newsletter.unsubscribe(token)
+    
+    # Return HTML page for better UX
+    if result["success"]:
+        return JSONResponse(content={
+            "status": "unsubscribed",
+            "message": "You have been successfully unsubscribed from the LiveLens newsletter."
+        })
+    else:
+        raise HTTPException(status_code=400, detail=result["message"])
+
+@app.get("/api/newsletter/stats")
+async def get_newsletter_stats():
+    """Get newsletter subscriber statistics"""
+    newsletter = get_newsletter_service()
+    return {
+        "subscriber_count": newsletter.get_subscriber_count(),
+        "subscribers": newsletter.get_subscribers()
+    }
+
+@app.post("/api/newsletter/send")
+async def send_newsletter_digest():
+    """Send newsletter digest to all subscribers (admin only)"""
+    newsletter = get_newsletter_service()
+    rec_engine = get_recommendation_engine()
+    
+    # Get top articles for newsletter
+    articles = rec_engine.get_mixed_feed(limit=10)
+    
+    if not articles:
+        raise HTTPException(status_code=400, detail="No articles available for newsletter")
+    
+    result = newsletter.send_newsletter(articles)
+    
+    return {
+        "success": result.success,
+        "sent_count": result.sent_count,
+        "failed_count": result.failed_count,
+        "message": result.message
     }
 
 
