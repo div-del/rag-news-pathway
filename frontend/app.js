@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTheme();
     initializeAIChat();
     initializePushNotifications();
+    initializeNewsletter();
     loadNewsFeed();
     loadStats();
     connectWebSocket();
@@ -644,6 +645,79 @@ async function sendArticleChatMessage() {
     }
 
     scrollToBottom(messagesDiv);
+}
+
+// ============ Newsletter Modal ============
+
+function openNewsletterModal() {
+    document.getElementById('newsletter-modal').classList.add('active');
+}
+
+window.closeNewsletterModal = function () {
+    document.getElementById('newsletter-modal').classList.remove('active');
+    document.getElementById('app-newsletter-message').style.display = 'none';
+};
+
+function initializeNewsletter() {
+    const btn = document.getElementById('nav-newsletter-btn');
+    if (btn) {
+        btn.addEventListener('click', openNewsletterModal);
+    }
+
+    const form = document.getElementById('app-newsletter-form');
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const category = document.getElementById('app-newsletter-category').value;
+            const msgDiv = document.getElementById('app-newsletter-message');
+            const submitBtn = form.querySelector('button');
+
+            // Get user email
+            let email = '';
+            if (window.Clerk && window.Clerk.user) {
+                email = window.Clerk.user.emailAddresses[0].emailAddress;
+            } else {
+                showNotification('Error: User not identified', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '📨 Sending article...';
+
+            try {
+                const result = await fetchAPI('/newsletter/subscribe', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: email,
+                        name: window.Clerk.user.firstName,
+                        category: category
+                    })
+                });
+
+                if (result.success) {
+                    msgDiv.innerHTML = `✅ <strong>Success!</strong> ${category} article sent to ${email}. Check your inbox!`;
+                    msgDiv.style.background = 'rgba(0, 255, 150, 0.1)';
+                    msgDiv.style.color = '#00ff96';
+                    msgDiv.style.border = '1px solid rgba(0, 255, 150, 0.2)';
+
+                    showNotification('Newsletter article sent!');
+                    setTimeout(() => window.closeNewsletterModal(), 4000);
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                msgDiv.innerHTML = `❌ ${error.message || 'Failed to subscribe'}`;
+                msgDiv.style.background = 'rgba(255, 107, 107, 0.1)';
+                msgDiv.style.color = '#ff6b6b';
+                msgDiv.style.border = '1px solid rgba(255, 107, 107, 0.2)';
+            }
+
+            msgDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Subscribe & Get Article';
+        });
+    }
 }
 
 // ============ Comparison Functions ============
