@@ -505,16 +505,16 @@ async def get_stats():
 class NewsletterSubscribeRequest(BaseModel):
     email: str = Field(..., description="Email address to subscribe")
     name: Optional[str] = Field(None, description="Subscriber name")
-    preferences: str = Field("all", description="Subscription preference: all, daily, weekly")
+    category: str = Field("Technology", description="News category to receive articles from")
 
 @app.post("/api/newsletter/subscribe")
 async def subscribe_newsletter(request: NewsletterSubscribeRequest):
-    """Subscribe to the newsletter"""
+    """Subscribe to the newsletter and receive an article immediately"""
     newsletter = get_newsletter_service()
     result = newsletter.subscribe(
         email=request.email,
         name=request.name,
-        preferences=request.preferences
+        category=request.category
     )
     
     if result["success"]:

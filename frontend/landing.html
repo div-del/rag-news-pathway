@@ -281,24 +281,39 @@
             <section class="newsletter-section"
                 style="padding: 4rem 2rem; text-align: center; max-width: 600px; margin: 0 auto;">
                 <h2
-                    style="font-size: 1.8rem; margin-bottom: 1rem; background: linear-gradient(135deg, #00c6ff, #0072ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                    📬 Stay Informed</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Get AI-curated news digests delivered to
-                    your inbox.</p>
+                    style="font-size: 1.8rem; margin-bottom: 1rem; background: linear-gradient(135deg, #00c6ff, #0072ff); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    📬 Get Your First Article Now</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Select a category and receive a curated
+                    article instantly!</p>
 
                 <form id="newsletter-form"
-                    style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center;">
+                    style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; flex-direction: column; align-items: center;">
                     <input type="email" id="newsletter-email" placeholder="Enter your email" required
-                        style="flex: 1; min-width: 250px; padding: 1rem 1.25rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-primary); font-size: 1rem; outline: none; transition: border-color 0.3s;">
+                        style="width: 100%; max-width: 350px; padding: 1rem 1.25rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-primary); font-size: 1rem; outline: none;">
+
+                    <select id="newsletter-category" required
+                        style="width: 100%; max-width: 350px; padding: 1rem 1.25rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-primary); font-size: 1rem; outline: none; cursor: pointer;">
+                        <option value="" disabled selected>Select a news category</option>
+                        <option value="Technology">🖥️ Technology</option>
+                        <option value="Finance">💰 Finance</option>
+                        <option value="Business">📈 Business</option>
+                        <option value="Science">🔬 Science</option>
+                        <option value="Health">🏥 Health</option>
+                        <option value="Entertainment">🎬 Entertainment</option>
+                        <option value="Sports">⚽ Sports</option>
+                        <option value="Politics">🏛️ Politics</option>
+                        <option value="World">🌍 World News</option>
+                    </select>
+
                     <button type="submit" class="btn-cta btn-cta-primary"
-                        style="padding: 1rem 2rem; white-space: nowrap;">
-                        Subscribe Free
+                        style="padding: 1rem 2.5rem; white-space: nowrap; margin-top: 0.5rem;">
+                        📧 Subscribe & Get Article
                     </button>
                 </form>
 
                 <p id="newsletter-message" style="margin-top: 1rem; color: #00c6ff; display: none;"></p>
-                <p style="color: var(--text-tertiary); font-size: 0.8rem; margin-top: 1rem;">No spam. Unsubscribe
-                    anytime.</p>
+                <p style="color: var(--text-tertiary); font-size: 0.8rem; margin-top: 1rem;">Instant delivery • No spam
+                    • Unsubscribe anytime</p>
             </section>
 
             <!-- Footer -->
@@ -355,22 +370,30 @@
             newsletterForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const email = document.getElementById('newsletter-email').value;
+                const category = document.getElementById('newsletter-category').value;
                 const submitBtn = newsletterForm.querySelector('button');
 
+                if (!category) {
+                    newsletterMessage.textContent = '❌ Please select a category';
+                    newsletterMessage.style.color = '#ff6b6b';
+                    newsletterMessage.style.display = 'block';
+                    return;
+                }
+
                 submitBtn.disabled = true;
-                submitBtn.textContent = 'Subscribing...';
+                submitBtn.innerHTML = '📨 Sending article...';
 
                 try {
                     const response = await fetch('/api/newsletter/subscribe', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email })
+                        body: JSON.stringify({ email, category })
                     });
 
                     const data = await response.json();
 
                     if (response.ok) {
-                        newsletterMessage.textContent = '✅ ' + data.message;
+                        newsletterMessage.innerHTML = '✅ <strong>Check your inbox!</strong> Your ' + category + ' article is on its way.';
                         newsletterMessage.style.color = '#00c6ff';
                         newsletterForm.reset();
                     } else {
@@ -384,7 +407,7 @@
 
                 newsletterMessage.style.display = 'block';
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Subscribe Free';
+                submitBtn.innerHTML = '📧 Subscribe & Get Article';
             });
         });
     </script>

@@ -76,9 +76,14 @@ class NewsletterService:
         """Generate unique unsubscribe token"""
         return hashlib.sha256(f"{email}{secrets.token_hex(16)}".encode()).hexdigest()[:32]
     
-    def subscribe(self, email: str, name: Optional[str] = None, preferences: str = 'all') -> Dict[str, Any]:
+    def subscribe(self, email: str, name: Optional[str] = None, category: str = 'Technology') -> Dict[str, Any]:
         """
-        Subscribe an email to the newsletter.
+        Subscribe an email to the newsletter and send a curated article.
+        
+        Args:
+            email: Subscriber email
+            name: Optional subscriber name
+            category: News category to send article from
         
         Returns:
             Dict with status and message
@@ -90,29 +95,33 @@ class NewsletterService:
             
             if existing:
                 if existing.is_active:
-                    return {"success": False, "message": "Email already subscribed"}
+                    # Still send an article for the new category
+                    self._send_article_email(email, category)
+                    return {"success": True, "message": f"You're already subscribed! Sending a fresh {category} article."}
                 else:
                     # Reactivate subscription
                     existing.is_active = True
+                    existing.preferences = category
                     existing.subscribed_at = datetime.utcnow()
                     session.commit()
-                    return {"success": True, "message": "Welcome back! Subscription reactivated"}
+                    self._send_article_email(email, category)
+                    return {"success": True, "message": f"Welcome back! Check your inbox for a {category} article."}
             
             # Create new subscriber
             subscriber = Subscriber(
                 email=email.lower(),
                 name=name,
-                preferences=preferences,
+                preferences=category,
                 unsubscribe_token=self._generate_unsubscribe_token(email)
             )
             session.add(subscriber)
             session.commit()
             
-            # Send welcome email
-            self._send_welcome_email(email, name)
+            # Send article email immediately
+            self._send_article_email(email, category, subscriber.unsubscribe_token)
             
-            logger.info(f"New subscriber: {email}")
-            return {"success": True, "message": "Successfully subscribed to newsletter!"}
+            logger.info(f"New subscriber: {email} (category: {category})")
+            return {"success": True, "message": f"Subscribed! Check your inbox for a {category} article."}
             
         except Exception as e:
             session.rollback()
@@ -172,6 +181,135 @@ class NewsletterService:
             return session.query(Subscriber).filter_by(is_active=True).count()
         finally:
             session.close()
+    
+    def _get_article_by_category(self, category: str) -> Optional[Dict[str, Any]]:
+        """Get a random article from the specified category"""
+        try:
+            from api.article_store import get_article_store
+            store = get_article_store()
+            
+            # Get articles from this category
+            all_articles = store.get_all_articles(limit=50)
+            category_articles = [
+                a for a in all_articles 
+                if a.get('category', '').lower() == category.lower()
+            ]
+            
+            if category_articles:
+                import random
+                return random.choice(category_articles)
+            elif all_articles:
+                # Fallback to any article
+                import random
+                return random.choice(all_articles)
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error getting article: {e}")
+            return None
+    
+    def _send_article_email(self, email: str, category: str, unsubscribe_token: Optional[str] = None):
+        """Send a curated article email with 70% content preview"""
+        if not self.api_key:
+            logger.warning("Cannot send article email - no API key")
+            return
+        
+        # Get an article from the category
+        article = self._get_article_by_category(category)
+        
+        if not article:
+            # No article found, send welcome email instead
+            self._send_welcome_email(email, None)
+            return
+        
+        title = article.get('title', 'News Article')
+        content = article.get('content', '')
+        source = article.get('source', 'Unknown')
+        url = article.get('url', self.site_url + '/app')
+        article_id = article.get('article_id', '')
+        
+        # Take 70% of content
+        content_length = len(content)
+        preview_length = int(content_length * 0.7)
+        content_preview = content[:preview_length]
+        
+        # Clean up preview - end at last complete sentence
+        last_period = content_preview.rfind('.')
+        if last_period > preview_length * 0.5:
+            content_preview = content_preview[:last_period + 1]
+        
+        # Build "Read More" URL to our app
+        read_more_url = f"{self.site_url}/app?article={article_id}" if article_id else url
+        
+        # Unsubscribe URL
+        unsub_url = f"{self.site_url}/api/newsletter/unsubscribe/{unsubscribe_token}" if unsubscribe_token else "#"
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0f; color: #e0e0e0; padding: 20px; margin: 0; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; overflow: hidden; }}
+        .header {{ background: linear-gradient(135deg, #00c6ff, #0072ff); padding: 25px; text-align: center; }}
+        .header h1 {{ color: white; margin: 0; font-size: 22px; }}
+        .category {{ display: inline-block; background: rgba(255,255,255,0.2); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; margin-top: 10px; text-transform: uppercase; font-weight: 600; }}
+        .content {{ padding: 25px; }}
+        .article-title {{ color: #fff; font-size: 20px; line-height: 1.4; margin-bottom: 15px; }}
+        .article-meta {{ color: #888; font-size: 12px; margin-bottom: 20px; }}
+        .article-content {{ color: #c0c0c0; font-size: 15px; line-height: 1.7; white-space: pre-wrap; }}
+        .read-more {{ display: inline-block; background: linear-gradient(135deg, #00c6ff, #0072ff); color: white; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; margin-top: 25px; font-size: 15px; }}
+        .read-more:hover {{ opacity: 0.9; }}
+        .divider {{ border: none; border-top: 1px solid #333; margin: 25px 0; }}
+        .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #333; }}
+        .footer a {{ color: #00c6ff; text-decoration: none; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Your {category} Article</h1>
+            <span class="category">📰 {category}</span>
+        </div>
+        <div class="content">
+            <h2 class="article-title">{title}</h2>
+            <p class="article-meta">📍 Source: {source}</p>
+            
+            <div class="article-content">{content_preview}</div>
+            
+            <p style="color: #888; margin-top: 20px; font-style: italic;">... article continues</p>
+            
+            <center>
+                <a href="{read_more_url}" class="read-more">📖 Read Full Article →</a>
+            </center>
+            
+            <hr class="divider">
+            
+            <p style="color: #888; text-align: center; font-size: 13px;">
+                Thanks for subscribing to LiveLens! We'll send you curated {category} news.
+            </p>
+        </div>
+        <div class="footer">
+            <p><a href="{self.site_url}/app">Explore More News</a> | <a href="{unsub_url}">Unsubscribe</a></p>
+            <p>© 2026 LiveLens | Powered by Pathway</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+        try:
+            resend.Emails.send({
+                "from": self.from_email,
+                "to": [email],
+                "subject": f"📰 Your {category} Article: {title[:50]}...",
+                "html": html_content
+            })
+            logger.info(f"Article email sent to {email} (category: {category})")
+        except Exception as e:
+            logger.error(f"Failed to send article email: {e}")
     
     def _send_welcome_email(self, email: str, name: Optional[str] = None):
         """Send welcome email to new subscriber"""
